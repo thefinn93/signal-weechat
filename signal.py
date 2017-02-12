@@ -24,6 +24,7 @@ default_options = {
 }
 
 options = {}
+buffers = {}
 
 bus = dbus.SessionBus()
 signal = None
@@ -43,6 +44,13 @@ def init_config():
     logging.debug("Initialized configuration")
 
 
+def show_msg(number, message, incoming):
+    if number not in buffers:
+        buffers[number] = weechat.buffer_new("%s" % number, "signal_input", number, "", "")
+        weechat.buffer_set(buffers[number], "title", number)
+    weechat.prnt(buffers[number], "%s\t%s" % (number if incoming else "Me", message))
+
+
 def config_changed(data, option, value):
     try:
         init_config()
@@ -54,6 +62,7 @@ def config_changed(data, option, value):
 def send(data, buffer, args):
     number, message = args.split(" ", 1)
     signal.sendMessage(message, dbus.Array(signature="s"), number)
+    show_msg(number, message, False)
     return weechat.WEECHAT_RC_OK
 
 
