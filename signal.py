@@ -52,7 +52,7 @@ def config_changed(data, option, value):
 
 
 def send(data, buffer, args):
-    number, message = args.split(" ", 2)
+    number, message = args.split(" ", 1)
     signal.sendMessage(message, dbus.Array(signature="s"), number)
     return weechat.WEECHAT_RC_OK
 
