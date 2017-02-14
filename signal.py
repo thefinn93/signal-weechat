@@ -53,12 +53,8 @@ def init_config():
 
 
 def show_msg(number, group, message, incoming):
-    buf = group if len(group) > 0 else number
-    if buf not in buffers:
-        cb = "buffer_input_group" if len(group) > 0 else "buffer_input"
-        buffers[buf] = weechat.buffer_new(buf, cb, buf, "", "")
-        weechat.buffer_set(buffers[buf], "title", buf)
-    weechat.prnt(buffers[buf], "%s\t%s" % (number if incoming else "Me", message))
+    buf = get_buffer(group if len(group) > 0 else number, len(group) > 0)
+    weechat.prnt(buf, "%s\t%s" % (number if incoming else "Me", message))
 
 
 def config_changed(data, option, value):
@@ -70,10 +66,23 @@ def config_changed(data, option, value):
 
 
 def send(data, buffer, args):
-    number, message = args.split(" ", 1)
-    signal.sendMessage(message, dbus.Array(signature="s"), number)
-    show_msg(number, message, False)
+    if len(args) == 0:
+        weechat.prnt("", "Not enough arguments! Try /help signal")
+    elif " " not in args:
+        get_buffer(args, False)
+    else:
+        number, message = args.split(" ", 1)
+        signal.sendMessage(message, dbus.Array(signature="s"), number)
+        show_msg(number, message, False)
     return weechat.WEECHAT_RC_OK
+
+
+def get_buffer(name, group):
+    if name not in buffers:
+        cb = "buffer_input_group" if group else "buffer_input"
+        buffers[name] = weechat.buffer_new(name, cb, name, "", "")
+        weechat.buffer_set(buffers[name], "title", name)
+    return buffers[name]
 
 
 def buffer_input(number, buffer, message):
