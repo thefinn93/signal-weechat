@@ -9,7 +9,6 @@ except ImportError:
 import logging
 import sys
 import dbus
-import subprocess
 import json
 import socket
 import os
@@ -87,7 +86,10 @@ def receive(data, fd):
     logging.debug("Receiving data!")
     data = json.loads(conn.recv(4069))
     logging.debug("got %s", data)
-    show_msg(data.get("sender"), data.get("message"), True)
+    if "meta" not in data:
+        show_msg(data.get("sender"), data.get("message"), True)
+    else:
+        weechat.prnt("", "Signal Daemon message: %s" % data.get("meta"))
     return weechat.WEECHAT_RC_OK
 
 
@@ -99,8 +101,6 @@ def dbus_to_sock(timestamp, sender, groupId, message, attachments):
         "message": message,
         "attachments": attachments
     })
-    # logging.debug("[%s]: %s", sender, message)
-    # show_msg(sender, message, True)
 
 
 def send_to_sock(msg):
@@ -118,7 +118,7 @@ def send_to_sock(msg):
 
 
 def wait_for_message():
-    logging.debug("Subprocess running!")
+    logging.debug("Daemon running!")
     interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
     interface.connect_to_signal("MessageReceived", dbus_to_sock)
     logging.debug("preparing to run dbus...")
