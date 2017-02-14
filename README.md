@@ -35,6 +35,7 @@ by signal-cli's dbus interface. Some of them have open issues on signal-cli:
 * No contact or group names yet. ([#55](https://github.com/AsamK/signal-cli/issues/55))
 * Can't register or link other devices.
 * Can only register one number.
+* No read receipts
 
 ## Support
 
