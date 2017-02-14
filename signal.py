@@ -11,6 +11,7 @@ import sys
 import dbus
 import json
 import socket
+import base64
 import os
 
 
@@ -51,11 +52,13 @@ def init_config():
     logging.debug("Initialized configuration")
 
 
-def show_msg(number, message, incoming):
-    if number not in buffers:
-        buffers[number] = weechat.buffer_new("%s" % number, "signal_input", number, "", "")
-        weechat.buffer_set(buffers[number], "title", number)
-    weechat.prnt(buffers[number], "%s\t%s" % (number if incoming else "Me", message))
+def show_msg(number, group, message, incoming):
+    buf = group if len(group) > 0 else number
+    if buf not in buffers:
+        cb = "buffer_input_group" if len(group) > 0 else "buffer_input"
+        buffers[buf] = weechat.buffer_new(buf, cb, buf, "", "")
+        weechat.buffer_set(buffers[buf], "title", buf)
+    weechat.prnt(buffers[buf], "%s\t%s" % (number if incoming else "Me", message))
 
 
 def config_changed(data, option, value):
@@ -73,9 +76,16 @@ def send(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 
-def signal_input(number, buffer, message):
+def buffer_input(number, buffer, message):
     signal.sendMessage(message, dbus.Array(signature="s"), number)
-    show_msg(number, message, False)
+    show_msg(number, "", message, False)
+    return weechat.WEECHAT_RC_OK
+
+
+def buffer_input_group(group, buffer, message):
+    groupId = [dbus.Byte(x) for x in base64.b64decode(group)]
+    signal.sendGroupMessage(message, dbus.Array(signature="s"), groupId)
+    show_msg("", group, message, False)
     return weechat.WEECHAT_RC_OK
 
 
@@ -87,14 +97,14 @@ def receive(data, fd):
     data = json.loads(conn.recv(4069))
     logging.debug("got %s", data)
     if "meta" not in data:
-        show_msg(data.get("sender"), data.get("message"), True)
+        show_msg(data.get("sender"), data.get("groupId"), data.get("message"), True)
     else:
         weechat.prnt("", "Signal Daemon message: %s" % data.get("meta"))
     return weechat.WEECHAT_RC_OK
 
 
 def dbus_to_sock(timestamp, sender, groupId, message, attachments):
-    groupId = "".join([str(int(x)) for x in groupId])
+    groupId = base64.b64encode("".join([chr(x) for x in groupId]))
     send_to_sock({
         "timestamp": timestamp,
         "sender": sender,
