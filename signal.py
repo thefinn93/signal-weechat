@@ -94,6 +94,7 @@ def receive(data, fd):
 
 
 def dbus_to_sock(timestamp, sender, groupId, message, attachments):
+    groupId = "".join([str(int(x)) for x in groupId])
     send_to_sock({
         "timestamp": timestamp,
         "sender": sender,
