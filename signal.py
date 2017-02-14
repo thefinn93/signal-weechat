@@ -73,7 +73,7 @@ def send(data, buffer, args):
     else:
         number, message = args.split(" ", 1)
         signal.sendMessage(message, dbus.Array(signature="s"), number)
-        show_msg(number, message, False)
+        show_msg(number, "", message, False)
     return weechat.WEECHAT_RC_OK
 
 
