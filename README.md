@@ -27,6 +27,15 @@ signal-cli -u +12024561414 verify 999999
 `/signal +12025551212 hi! I'm texting you from weechat!`
 
 
+## Limitations
+
+There are numerous issues in the GitHub issues for this project, but the following limitations are imposed
+by signal-cli's dbus interface. Some of them have open issues on signal-cli:
+
+* No contact or group names yet. ([#55](https://github.com/AsamK/signal-cli/issues/55))
+* Can't register or link other devices.
+* Can only register one number.
+
 ## Support
 
 good luck. No but seriously, feel free to file an issue, just no promises of support.
