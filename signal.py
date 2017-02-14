@@ -2,10 +2,17 @@
 try:
     import weechat
 except ImportError:
-    print("Are you sure you're doing this right?")
+    from dbus.mainloop.glib import DBusGMainLoop
+    from gi.repository import GLib
+    DBusGMainLoop(set_as_default=True)
+    loop = GLib.MainLoop()
 import logging
 import sys
 import dbus
+import subprocess
+import json
+import socket
+import os
 
 
 SCRIPT_NAME = 'signal'
@@ -17,6 +24,8 @@ SCRIPT_DESC = 'Send and receive messages via Signal with weechat'
 SCRIPT_COMMAND = 'signal'
 SCRIPT_BUFFER = 'signal'
 
+logging.basicConfig(filename='signal-weechat.log', level=logging.DEBUG)
+
 default_options = {
     'bus': "session",
     'debug': '',
@@ -25,9 +34,11 @@ default_options = {
 
 options = {}
 buffers = {}
+sock = None
+
 
 bus = dbus.SessionBus()
-signal = None
+signal = bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
 
 
 def init_config():
@@ -38,9 +49,6 @@ def init_config():
         options[option] = weechat.config_get_plugin(option)
     if options.get('debug', '') != '':
         logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
-    if options.get('bus', 'session') == "system":
-        bus = dbus.SystemBus()
-    signal = bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
     logging.debug("Initialized configuration")
 
 
@@ -66,7 +74,60 @@ def send(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 
+def signal_input(number, buffer, message):
+    signal.sendMessage(message, dbus.Array(signature="s"), number)
+    show_msg(number, message, False)
+    return weechat.WEECHAT_RC_OK
+
+
+def receive(data, fd):
+    if not sock:
+        return weechat.WEECHAT_RC_OK
+    conn, addr = sock.accept()
+    logging.debug("Receiving data!")
+    data = json.loads(conn.recv(4069))
+    logging.debug("got %s", data)
+    show_msg(data.get("sender"), data.get("message"), True)
+    return weechat.WEECHAT_RC_OK
+
+
+def dbus_to_sock(timestamp, sender, groupId, message, attachments):
+    send_to_sock({
+        "timestamp": timestamp,
+        "sender": sender,
+        "groupId": groupId,
+        "message": message,
+        "attachments": attachments
+    })
+    # logging.debug("[%s]: %s", sender, message)
+    # show_msg(sender, message, True)
+
+
+def send_to_sock(msg):
+    msg = json.dumps(msg)
+    sock_path = sys.argv[1]
+    logging.debug("Pushing %s to the %s", msg, sock_path)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    logging.debug("Connecting to socket...")
+    sock.connect(sock_path)
+    logging.debug("Sending message...")
+    sock.sendall(msg)
+    logging.debug("Closing socket")
+    sock.close()
+    logging.debug("Done")
+
+
+def wait_for_message():
+    logging.debug("Subprocess running!")
+    interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
+    interface.connect_to_signal("MessageReceived", dbus_to_sock)
+    logging.debug("preparing to run dbus...")
+    send_to_sock({"meta": "initialized"})
+    loop.run()
+
+
 def main():
+    global sock
     logging.debug("Preparing to register")
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
@@ -79,6 +140,22 @@ def main():
             logging.debug("Registering command...")
             weechat.hook_command("signal", "Send a message to someone on signal", "[number] [message]",
                                  "\n".join(signal_help), "%(message)", "send", "")
+
+            sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
+            try:
+                os.unlink(sock_path)
+            except OSError:
+                if os.path.exists(sock_path):
+                    raise
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.bind(sock_path)
+            sock.listen(5)
+
+            logging.debug("Initializing subprocess...")
+            # subprocess.Popen(['python', __file__, sock_path], stdout=subprocess.PIPE)
+            fdhook = weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
+            weechat.prnt("", "Listening on %s" % sock_path)
+            logging.debug("Hooked fd: %s", fdhook)
     except Exception:
         logging.exception("Failed to initialize plugin.")
 
@@ -86,5 +163,4 @@ if __name__ == "__main__":
     if "weechat" in sys.modules:
         main()
     else:
-        import pdb
-        pdb.set_trace()
+        wait_for_message()
