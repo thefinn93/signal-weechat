@@ -40,10 +40,6 @@ buffers = {}
 sock = None
 
 
-bus = dbus.SessionBus()
-signal = bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
-
-
 def init_config():
     global default_options, options, bus, signal
     for option, default_value in default_options.items():
@@ -68,6 +64,11 @@ def config_changed(data, option, value):
     return weechat.WEECHAT_RC_OK
 
 
+def getSignal():
+    bus = dbus.SessionBus()
+    return bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
+
+
 def send(data, buffer, args):
     if len(args) == 0:
         weechat.prnt("", "Not enough arguments! Try /help signal")
@@ -75,7 +76,7 @@ def send(data, buffer, args):
         get_buffer(args, False)
     else:
         number, message = args.split(" ", 1)
-        signal.sendMessage(message, dbus.Array(signature="s"), number)
+        getSignal().sendMessage(message, dbus.Array(signature="s"), number)
         show_msg(number, "", message, False)
     return weechat.WEECHAT_RC_OK
 
@@ -89,14 +90,14 @@ def get_buffer(name, group):
 
 
 def buffer_input(number, buffer, message):
-    signal.sendMessage(message, dbus.Array(signature="s"), number)
+    getSignal().sendMessage(message, dbus.Array(signature="s"), number)
     show_msg(number, "", message, False)
     return weechat.WEECHAT_RC_OK
 
 
 def buffer_input_group(group, buffer, message):
     groupId = [dbus.Byte(x) for x in base64.b64decode(group)]
-    signal.sendGroupMessage(message, dbus.Array(signature="s"), groupId)
+    getSignal().sendGroupMessage(message, dbus.Array(signature="s"), groupId)
     show_msg("", group, message, False)
     return weechat.WEECHAT_RC_OK
 
@@ -269,9 +270,16 @@ class Daemon:
                 """
                 try:
                     logging.debug("Daemon running!")
+                    signal = None
+                    while signal is None:
+                        try:
+                            signal = getSignal()
+                        except dbus.DBusException:
+                            logging.debug("Waiting for signal-cli to come up...")
+                            time.sleep(1)
                     interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
                     interface.connect_to_signal("MessageReceived", self.dbus_to_sock)
-                    self.send_to_sock({"meta": "initialized"})
+                    self.send_to_sock({"meta": "Connected to signal-cli"})
                     loop.run()
                 except:
                     logging.exception("The daemon hath died a horrible death :(")
