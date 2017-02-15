@@ -13,6 +13,9 @@ import json
 import socket
 import base64
 import os
+import time
+from signal import SIGTERM
+import atexit
 
 
 SCRIPT_NAME = 'signal'
@@ -112,38 +115,10 @@ def receive(data, fd):
     return weechat.WEECHAT_RC_OK
 
 
-def dbus_to_sock(timestamp, sender, groupId, message, attachments):
-    groupId = base64.b64encode("".join([chr(x) for x in groupId]))
-    send_to_sock({
-        "timestamp": timestamp,
-        "sender": sender,
-        "groupId": groupId,
-        "message": message,
-        "attachments": attachments
-    })
-
-
-def send_to_sock(msg):
-    msg = json.dumps(msg)
-    sock_path = sys.argv[1]
-    logging.debug("Pushing %s to the %s", msg, sock_path)
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    logging.debug("Connecting to socket...")
-    sock.connect(sock_path)
-    logging.debug("Sending message...")
-    sock.sendall(msg)
-    logging.debug("Closing socket")
-    sock.close()
-    logging.debug("Done")
-
-
-def wait_for_message():
-    logging.debug("Daemon running!")
-    interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
-    interface.connect_to_signal("MessageReceived", dbus_to_sock)
-    logging.debug("preparing to run dbus...")
-    send_to_sock({"meta": "initialized"})
-    loop.run()
+def daemon_cb(*args):
+    weechat.prnt("", "Daemon launched!")
+    logging.info("Daemon successfully launched: %s", args)
+    return weechat.WEECHAT_RC_OK
 
 
 def main():
@@ -162,6 +137,7 @@ def main():
                                  "\n".join(signal_help), "%(message)", "send", "")
 
             sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
+            pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
             try:
                 os.unlink(sock_path)
             except OSError:
@@ -171,16 +147,162 @@ def main():
             sock.bind(sock_path)
             sock.listen(5)
 
-            logging.debug("Initializing subprocess...")
-            # subprocess.Popen(['python', __file__, sock_path], stdout=subprocess.PIPE)
-            fdhook = weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
+            weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
             weechat.prnt("", "Listening on %s" % sock_path)
-            logging.debug("Hooked fd: %s", fdhook)
+
+            logging.debug("Preparing to launch daemon...")
+            daemon_command = ["python", __file__, sock_path, pid_path]
+            weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
     except Exception:
         logging.exception("Failed to initialize plugin.")
+
+
+# (almost) everything after this is for the daemon
+
+class Daemon:
+        def __init__(self, sock_path, pidfile):
+                self.pidfile = pidfile
+                self.sock_path = sock_path
+
+        def daemonize(self):
+                """
+                do the UNIX double-fork magic, see Stevens' "Advanced
+                Programming in the UNIX Environment" for details (ISBN 0201563177)
+                http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
+                """
+                try:
+                        pid = os.fork()
+                        if pid > 0:
+                                # exit first parent
+                                sys.exit(0)
+                except OSError, e:
+                        sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+                        sys.exit(1)
+
+                # decouple from parent environment
+                os.chdir("/")
+                os.setsid()
+                os.umask(0)
+
+                # do second fork
+                try:
+                        pid = os.fork()
+                        if pid > 0:
+                                # exit from second parent
+                                sys.exit(0)
+                except OSError, e:
+                        sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
+                        sys.exit(1)
+
+                # write pidfile
+                atexit.register(self.delpid)
+                pid = str(os.getpid())
+                logging.info("Daemon running as PID %s", pid)
+                file(self.pidfile, 'w+').write("%s\n" % pid)
+
+        def delpid(self):
+                os.remove(self.pidfile)
+
+        def start(self):
+                """
+                Start the daemon
+                """
+                # Check for a pidfile to see if the daemon already runs
+                try:
+                        pf = file(self.pidfile, 'r')
+                        pid = int(pf.read().strip())
+                        pf.close()
+                except IOError:
+                        pid = None
+
+                if pid:
+                        message = "pidfile %s already exist. Daemon already running?\n"
+                        sys.stderr.write(message % self.pidfile)
+                        sys.exit(1)
+
+                # Start the daemon
+                self.daemonize()
+                self.run()
+
+        def stop(self):
+                """
+                Stop the daemon
+                """
+                # Get the pid from the pidfile
+                try:
+                        pf = file(self.pidfile, 'r')
+                        pid = int(pf.read().strip())
+                        pf.close()
+                except IOError:
+                        pid = None
+
+                if not pid:
+                        message = "pidfile %s does not exist. Daemon not running?\n"
+                        sys.stderr.write(message % self.pidfile)
+                        return  # not an error in a restart
+
+                # Try killing the daemon process
+                try:
+                        while 1:
+                                os.kill(pid, SIGTERM)
+                                time.sleep(0.1)
+                except OSError, err:
+                        err = str(err)
+                        if err.find("No such process") > 0:
+                                if os.path.exists(self.pidfile):
+                                        os.remove(self.pidfile)
+                        else:
+                                print str(err)
+                                sys.exit(1)
+
+        def restart(self):
+                """
+                Restart the daemon
+                """
+                self.stop()
+                self.start()
+
+        def run(self):
+                """
+                You should override this method when you subclass Daemon. It will be called after the process has been
+                daemonized by start() or restart().
+                """
+                try:
+                    logging.debug("Daemon running!")
+                    interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
+                    interface.connect_to_signal("MessageReceived", self.dbus_to_sock)
+                    self.send_to_sock({"meta": "initialized"})
+                    loop.run()
+                except:
+                    logging.exception("The daemon hath died a horrible death :(")
+
+        def dbus_to_sock(self, timestamp, sender, groupId, message, attachments):
+            groupId = base64.b64encode("".join([chr(x) for x in groupId]))
+            self.send_to_sock({
+                "timestamp": timestamp,
+                "sender": sender,
+                "groupId": groupId,
+                "message": message,
+                "attachments": attachments
+            })
+
+        def send_to_sock(self, msg):
+            msg = json.dumps(msg)
+            sock_path = sys.argv[1]
+            logging.debug("Pushing %s to the %s", msg, sock_path)
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            logging.debug("Connecting to socket...")
+            sock.connect(self.sock_path)
+            logging.debug("Sending message...")
+            sock.sendall(msg)
+            logging.debug("Closing socket")
+            sock.close()
+            logging.debug("Done")
+
 
 if __name__ == "__main__":
     if "weechat" in sys.modules:
         main()
     else:
-        wait_for_message()
+        daemon = Daemon(*sys.argv[1:])
+        daemon.start()

@@ -17,9 +17,8 @@ signal-cli -u +12024561414 register
 signal-cli -u +12024561414 verify 999999
 ```
 3. Install this script: `cp signal.py ~/.weechat/python/signal.py`
-4. Load it in weechat: `/python load signal.py`
-5. Run signal-cli in daemon mode: `signal-cli -u +12024561414 daemon`
-6. Run signal.py daemon: `python ~/.weechat/signal/signal.py ~/.weechat/signal.sock`.
+4. Run signal-cli in daemon mode: `signal-cli -u +12024561414 daemon`
+5. Load it in weechat: `/python load signal.py`
 
 
 ## Use
