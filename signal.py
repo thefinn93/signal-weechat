@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 try:
     import weechat
+    logger_name = "weechat_script"
 except ImportError:
     from dbus.mainloop.glib import DBusGMainLoop
     from gi.repository import GLib
     DBusGMainLoop(set_as_default=True)
     loop = GLib.MainLoop()
+    logger_name = "daemon"
 import logging
 import sys
 import dbus
@@ -16,6 +18,7 @@ import os
 import time
 from signal import SIGTERM
 import atexit
+import subprocess
 
 
 SCRIPT_NAME = 'signal'
@@ -29,10 +32,13 @@ SCRIPT_BUFFER = 'signal'
 
 logging.basicConfig(filename='signal-weechat.log', level=logging.DEBUG)
 
+logger = logging.getLogger(logger_name)
+
 default_options = {
     'bus': "session",
     'debug': '',
-    'sentry_dsn': ''
+    'sentry_dsn': '',
+    'number': ''
 }
 
 options = {}
@@ -48,7 +54,12 @@ def init_config():
         options[option] = weechat.config_get_plugin(option)
     if options.get('debug', '') != '':
         logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
-    logging.debug("Initialized configuration")
+    if len(options.get('number', '')) == 0:
+        weechat.prnt("", "Set your number with /set plugins.var.python.signal.number +12024561414")
+    else:
+        logger.debug("Number is '%s'", options.get('number'))
+        launch_daemon()
+    logger.debug("Initialized configuration")
 
 
 def show_msg(number, group, message, incoming):
@@ -60,7 +71,7 @@ def config_changed(data, option, value):
     try:
         init_config()
     except Exception:
-        logging.exception("Failed to reload config")
+        logger.exception("Failed to reload config")
     return weechat.WEECHAT_RC_OK
 
 
@@ -106,25 +117,46 @@ def receive(data, fd):
     if not sock:
         return weechat.WEECHAT_RC_OK
     conn, addr = sock.accept()
-    logging.debug("Receiving data!")
+    logger.debug("Receiving data!")
     data = json.loads(conn.recv(4069))
-    logging.debug("got %s", data)
-    if "meta" not in data:
-        show_msg(data.get("sender"), data.get("groupId"), data.get("message"), True)
-    else:
-        weechat.prnt("", "Signal Daemon message: %s" % data.get("meta"))
+    logger.debug("got %s", data)
+    msg = data.get("msg")
+    if data.get("type") == "message":
+        show_msg(msg.get("sender"), msg.get("groupId"), msg.get("message"), True)
+    elif data.get("type") == "meta":
+        weechat.prnt("", msg)
     return weechat.WEECHAT_RC_OK
 
 
 def daemon_cb(*args):
     weechat.prnt("", "Daemon launched!")
-    logging.info("Daemon successfully launched: %s", args)
+    logger.info("Daemon successfully launched: %s", args)
     return weechat.WEECHAT_RC_OK
 
 
-def main():
+def launch_daemon():
     global sock
-    logging.debug("Preparing to register")
+    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
+    pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
+    try:
+        os.unlink(sock_path)
+    except OSError:
+        if os.path.exists(sock_path):
+            raise
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.bind(sock_path)
+    sock.listen(5)
+
+    weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
+    weechat.prnt("", "Listening on %s" % sock_path)
+
+    logger.debug("Preparing to launch daemon...")
+    daemon_command = ["python", __file__, sock_path, pid_path, options.get('number')]
+    weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
+
+
+def main():
+    logger.debug("Preparing to register")
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
             init_config()
@@ -133,37 +165,22 @@ def main():
                 "number: the full number (including country code) to send to",
                 "message: the text of the message to send"
             ]
-            logging.debug("Registering command...")
-            weechat.hook_command("signal", "Send a message to someone on signal", "[number] [message]",
+            logger.debug("Registering command...")
+            weechat.hook_command("smsg", "Send a message to someone on signal", "[number] [message]",
                                  "\n".join(signal_help), "%(message)", "send", "")
-
-            sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
-            pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
-            try:
-                os.unlink(sock_path)
-            except OSError:
-                if os.path.exists(sock_path):
-                    raise
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.bind(sock_path)
-            sock.listen(5)
-
-            weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
-            weechat.prnt("", "Listening on %s" % sock_path)
-
-            logging.debug("Preparing to launch daemon...")
-            daemon_command = ["python", __file__, sock_path, pid_path]
-            weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
     except Exception:
-        logging.exception("Failed to initialize plugin.")
+        logger.exception("Failed to initialize plugin.")
 
 
 # (almost) everything after this is for the daemon
 
 class Daemon:
-        def __init__(self, sock_path, pidfile):
+        signalsubprocess = None
+
+        def __init__(self, sock_path, pidfile, number):
                 self.pidfile = pidfile
                 self.sock_path = sock_path
+                self.number = number
 
         def daemonize(self):
                 """
@@ -198,10 +215,12 @@ class Daemon:
                 # write pidfile
                 atexit.register(self.delpid)
                 pid = str(os.getpid())
-                logging.info("Daemon running as PID %s", pid)
+                logger.info("Daemon running as PID %s", pid)
                 file(self.pidfile, 'w+').write("%s\n" % pid)
 
         def delpid(self):
+                if self.signalsubprocess is not None:
+                    self.signalsubprocess.kill()
                 os.remove(self.pidfile)
 
         def start(self):
@@ -269,20 +288,32 @@ class Daemon:
                 daemonized by start() or restart().
                 """
                 try:
-                    logging.debug("Daemon running!")
+                    logger.debug("Daemon running!")
+                    self.signalsubprocess = subprocess.Popen(['signal-cli', '-u', self.number, 'daemon'])
                     signal = None
-                    while signal is None:
+                    while signal is None and self.signalsubprocess.poll() is None:
                         try:
                             signal = getSignal()
                         except dbus.DBusException:
-                            logging.debug("Waiting for signal-cli to come up...")
+                            logger.debug("Waiting for signal-cli to come up...")
                             time.sleep(1)
-                    interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
-                    interface.connect_to_signal("MessageReceived", self.dbus_to_sock)
-                    self.send_to_sock({"meta": "Connected to signal-cli"})
-                    loop.run()
+                    if self.signalsubprocess.poll() is None:
+                        interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
+                        interface.connect_to_signal("MessageReceived", self.dbus_to_sock)
+                        self.send_to_sock("Connected to signal-cli", "meta")
+                        loop.run()
+                    else:
+                        logging.debug("signal-cli exited with code %s, assuming unregistered",
+                                      self.signalsubprocess.poll())
+                        message = "We don't have a registration for {number}! Please either register it or link " \
+                                  "an existing device:\n\n" \
+                                  "  Register with: /signal register {number}\n" \
+                                  "             or\n" \
+                                  "  Link an existing device with /signal link".format(number=self.number)
+
+                        self.send_to_sock(message, "meta")
                 except:
-                    logging.exception("The daemon hath died a horrible death :(")
+                    logger.exception("The daemon hath died a horrible death :(")
 
         def dbus_to_sock(self, timestamp, sender, groupId, message, attachments):
             groupId = base64.b64encode("".join([chr(x) for x in groupId]))
@@ -292,23 +323,24 @@ class Daemon:
                 "groupId": groupId,
                 "message": message,
                 "attachments": attachments
-            })
+            }, "message")
 
-        def send_to_sock(self, msg):
-            msg = json.dumps(msg)
+        def send_to_sock(self, msg, type):
+            msg = json.dumps({"msg": msg, "type": type})
             sock_path = sys.argv[1]
-            logging.debug("Pushing %s to the %s", msg, sock_path)
+            logger.debug("Pushing %s to the %s", msg, sock_path)
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            logging.debug("Connecting to socket...")
+            logger.debug("Connecting to socket...")
             sock.connect(self.sock_path)
-            logging.debug("Sending message...")
+            logger.debug("Sending message...")
             sock.sendall(msg)
-            logging.debug("Closing socket")
+            logger.debug("Closing socket")
             sock.close()
-            logging.debug("Done")
+            logger.debug("Done")
 
 
 if __name__ == "__main__":
+    logger.debug("__file__ = %s", __file__)
     if "weechat" in sys.modules:
         main()
     else:
