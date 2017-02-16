@@ -11,13 +11,7 @@ Use Signal (via [signal-cli](https://github.com/AsamK/signal-cli)) in weechat.
 
 ## Installing
 
-1. Setup signal-cli:
-```bash
-signal-cli -u +12024561414 register
-signal-cli -u +12024561414 verify 999999
-```
 3. Install this script: `cp signal.py ~/.weechat/python/signal.py`
-4. Run signal-cli in daemon mode: `signal-cli -u +12024561414 daemon`
 5. Load it in weechat: `/python load signal.py`
 
 
