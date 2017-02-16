@@ -44,6 +44,7 @@ default_options = {
 options = {}
 buffers = {}
 sock = None
+daemon_path = __file__
 
 
 def init_config():
@@ -82,13 +83,60 @@ def getSignal():
 
 def send(data, buffer, args):
     if len(args) == 0:
-        weechat.prnt("", "Not enough arguments! Try /help signal")
+        weechat.prnt("", "Not enough arguments! Try /help smg")
     elif " " not in args:
         get_buffer(args, False)
     else:
         number, message = args.split(" ", 1)
         getSignal().sendMessage(message, dbus.Array(signature="s"), number)
         show_msg(number, "", message, False)
+    return weechat.WEECHAT_RC_OK
+
+
+def signal_cmd_cb(data, buffer, args):
+    if len(args) == 0:
+        weechat.prnt("", "not enough arguments! try /help signal")
+        return weechat.WEECHAT_RC_OK
+    args = args.split(" ")
+    command = args[0]
+    if command == "register":
+        do_register(args)
+    elif command == "verify":
+        do_verify(args)
+    else:
+        weechat.prnt("", "Unrecognized command! try /help signal")
+    return weechat.WEECHAT_RC_OK
+
+
+def do_register(args):
+    if len(args) != 2:
+        weechat.prnt("", "Incorrect usage. Try /help signal")
+        return None
+    number = args[1]
+    weechat.hook_process('signal-cli -u %s register' % number, 300, "register_cb", number)
+
+
+def register_cb(number, command, code, out, err):
+    logger.debug("Registration for %s (%s) exited with code %s, out %s err %s", number, command, code, out, err)
+    weechat.prnt("", "A verification code has been texted to %s. Run /signal verify %s [code] when you receive it" %
+                 (number, number))
+    return weechat.WEECHAT_RC_OK
+
+
+def do_verify(args):
+    if len(args) != 3:
+        weechat.prnt("", "Incorrect arguments. Try /help signal")
+        return None
+    number = args[1]
+    code = args[2]
+    weechat.hook_process('signal-cli -u %s verify %s' % (number, code), 300, "verify_cb", number)
+    return weechat.WEECHAT_RC_OK
+
+
+def verify_cb(number, command, code, out, err):
+    logger.debug("Registration for %s (%s) exited with code %s, out %s err %s", number, command, code, out, err)
+    weechat.prnt("", "Verification probably succeeded. Trying to start listening for messages...")
+    weechat.config_set_plugin("number", number)
     return weechat.WEECHAT_RC_OK
 
 
@@ -151,7 +199,7 @@ def launch_daemon():
     weechat.prnt("", "Listening on %s" % sock_path)
 
     logger.debug("Preparing to launch daemon...")
-    daemon_command = ["python", __file__, sock_path, pid_path, options.get('number')]
+    daemon_command = [sys.executable, daemon_path, sock_path, pid_path, options.get('number')]
     weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
 
 
@@ -168,6 +216,8 @@ def main():
             logger.debug("Registering command...")
             weechat.hook_command("smsg", "Send a message to someone on signal", "[number] [message]",
                                  "\n".join(signal_help), "%(message)", "send", "")
+            weechat.hook_command("signal", "Interact with Signal", "[action]",
+                                 "help coming soon...", "%(message)", "signal_cmd_cb", "")
     except Exception:
         logger.exception("Failed to initialize plugin.")
 
