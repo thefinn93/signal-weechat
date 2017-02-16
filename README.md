@@ -17,7 +17,7 @@ Use Signal (via [signal-cli](https://github.com/AsamK/signal-cli)) in weechat.
 
 ## Use
 
-`/signal +12025551212 hi! I'm texting you from weechat!`
+`/smsg +12025551212 hi! I'm texting you from weechat!`
 
 
 ## Limitations
