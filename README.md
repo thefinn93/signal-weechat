@@ -25,7 +25,6 @@ Use Signal (via [signal-cli](https://github.com/AsamK/signal-cli)) in weechat.
 There are numerous issues in the GitHub issues for this project, but the following limitations are imposed
 by signal-cli's dbus interface. Some of them have open issues on signal-cli:
 
-* No contact or group names yet. ([#55](https://github.com/AsamK/signal-cli/issues/55))
 * Can't register or link other devices.
 * Can only register one number.
 * No read receipts
