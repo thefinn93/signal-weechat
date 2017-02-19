@@ -199,7 +199,7 @@ def launch_daemon():
     weechat.prnt("", "Listening on %s" % sock_path)
 
     logger.debug("Preparing to launch daemon...")
-    daemon_command = [sys.executable, daemon_path, sock_path, pid_path, options.get('number')]
+    daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number')]
     weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
 
 
