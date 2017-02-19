@@ -140,12 +140,22 @@ def verify_cb(number, command, code, out, err):
     return weechat.WEECHAT_RC_OK
 
 
-def get_buffer(name, group):
-    if name not in buffers:
-        cb = "buffer_input_group" if group else "buffer_input"
-        buffers[name] = weechat.buffer_new(name, cb, name, "", "")
-        weechat.buffer_set(buffers[name], "title", name)
-    return buffers[name]
+def get_buffer(identifier, isGroup):
+    if identifier not in buffers:
+        cb = "buffer_input_group" if isGroup else "buffer_input"
+        name = identifier
+        logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
+        try:
+            if isGroup:
+                name = getSignal().getGroupName([dbus.Byte(x) for x in base64.b64decode(identifier)])
+            else:
+                name = getSignal().getContactName(identifier)
+            logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
+        except dbus.exceptions.DBusException:
+            pass
+        buffers[identifier] = weechat.buffer_new(name, cb, identifier, "", "")
+        weechat.buffer_set(buffers[identifier], "title", name)
+    return buffers[identifier]
 
 
 def buffer_input(number, buffer, message):
