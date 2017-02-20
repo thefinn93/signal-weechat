@@ -280,7 +280,8 @@ def launch_daemon(*_):
     weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
 
     logger.debug("Preparing to launch daemon...")
-    daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number')]
+    daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number'),
+                      options.get('signal_cli_command')]
     if options.get('debug', '') != '':
         daemon_command.append(options.get('debug', ''))
     weechat.hook_process(" ".join(daemon_command), 1000, "daemon_cb", "")
@@ -364,10 +365,11 @@ def main():
 class Daemon:
         signalsubprocess = None
 
-        def __init__(self, sock_path, pidfile, number, filename=None):
+        def __init__(self, sock_path, pidfile, number, signalcli, filename=None):
                 self.pidfile = pidfile
                 self.sock_path = sock_path
                 self.number = number
+                self.signalcli = signalcli
                 if filename is not None:
                     logging.basicConfig(filename=filename, level=logging.DEBUG)
 
@@ -444,7 +446,7 @@ class Daemon:
 
                 try:
                     logger.debug("Daemon running as %s", os.getpid())
-                    self.signalsubprocess = subprocess.Popen(['signal-cli', '-u', self.number, 'daemon'])
+                    self.signalsubprocess = subprocess.Popen([self.signalcli, '-u', self.number, 'daemon'])
                     signal = None
                     while signal is None and self.signalsubprocess.poll() is None:
                         try:
