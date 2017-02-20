@@ -30,8 +30,6 @@ SCRIPT_DESC = 'Send and receive messages via Signal with weechat'
 SCRIPT_COMMAND = 'signal'
 SCRIPT_BUFFER = 'signal'
 
-logging.basicConfig(filename='signal-weechat.log', level=logging.DEBUG)
-
 logger = logging.getLogger(logger_name)
 
 default_options = {
@@ -268,6 +266,8 @@ def launch_daemon(*_):
 
     logger.debug("Preparing to launch daemon...")
     daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number')]
+    if options.get('debug', '') != '':
+        daemon_command += options.get('debug', '')
     weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
 
 
@@ -370,6 +370,8 @@ class Daemon:
                 You should override this method when you subclass Daemon. It will be called after the process has been
                 daemonized by start() or restart().
                 """
+                if len(sys.argv) >= 5:
+                    logging.basicConfig(filename=sys.argv[4], level=logging.DEBUG)
                 try:
                     logger.debug("Daemon running!")
                     self.signalsubprocess = subprocess.Popen(['signal-cli', '-u', self.number, 'daemon'])
