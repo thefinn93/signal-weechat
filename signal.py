@@ -94,6 +94,32 @@ def send(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 
+def quit_cb(pid_path, signal, signal_data):
+    pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
+    try:
+        pf = file(pid_path, 'r')
+        pid = int(pf.read().strip())
+        pf.close()
+    except IOError:
+        pid = None
+
+    if not pid:
+        return weechat.WEECHAT_RC_OK
+
+    try:
+        while 1:
+            os.kill(pid, SIGTERM)
+            time.sleep(0.1)
+    except OSError, err:
+        err = str(err)
+        if err.find("No such process") > 0:
+            if os.path.exists(pid_path):
+                os.remove(pid_path)
+            else:
+                weechat.prnt("", str(err))
+    return weechat.WEECHAT_RC_OK
+
+
 def signal_cmd_cb(data, buffer, args):
     if len(args) == 0:
         weechat.prnt("", "not enough arguments! try /help signal")
@@ -226,8 +252,8 @@ def daemon_cb(*args):
 
 def launch_daemon():
     global sock
-    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
     pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
+    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
     try:
         os.unlink(sock_path)
     except OSError:
@@ -260,6 +286,7 @@ def main():
                                  "\n".join(signal_help), "%(message)", "send", "")
             weechat.hook_command("signal", "Interact with Signal", "[action]",
                                  "help coming soon...", "%(message)", "signal_cmd_cb", "")
+            weechat.hook_signal('quit', 'quit_cb', '')
     except Exception:
         logger.exception("Failed to initialize plugin.")
 
@@ -335,44 +362,6 @@ class Daemon:
                 # Start the daemon
                 self.daemonize()
                 self.run()
-
-        def stop(self):
-                """
-                Stop the daemon
-                """
-                # Get the pid from the pidfile
-                try:
-                        pf = file(self.pidfile, 'r')
-                        pid = int(pf.read().strip())
-                        pf.close()
-                except IOError:
-                        pid = None
-
-                if not pid:
-                        message = "pidfile %s does not exist. Daemon not running?\n"
-                        sys.stderr.write(message % self.pidfile)
-                        return  # not an error in a restart
-
-                # Try killing the daemon process
-                try:
-                        while 1:
-                                os.kill(pid, SIGTERM)
-                                time.sleep(0.1)
-                except OSError, err:
-                        err = str(err)
-                        if err.find("No such process") > 0:
-                                if os.path.exists(self.pidfile):
-                                        os.remove(self.pidfile)
-                        else:
-                                print str(err)
-                                sys.exit(1)
-
-        def restart(self):
-                """
-                Restart the daemon
-                """
-                self.stop()
-                self.start()
 
         def run(self):
                 """
