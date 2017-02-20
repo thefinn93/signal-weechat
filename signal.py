@@ -65,7 +65,8 @@ def init_config():
 
 def show_msg(number, group, message, incoming):
     buf = get_buffer(group if len(group) > 0 else number, len(group) > 0)
-    weechat.prnt(buf, "%s\t%s" % (number if incoming else "Me", message))
+    name = getSignal().getContactName(number) if incoming else "Me"
+    weechat.prnt(buf, "%s\t%s" % (name, message))
 
 
 def config_changed(data, option, value):
@@ -145,16 +146,27 @@ def get_buffer(identifier, isGroup):
         cb = "buffer_input_group" if isGroup else "buffer_input"
         name = identifier
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
+        nicklist = []
+        signal = getSignal()
         try:
             if isGroup:
-                name = getSignal().getGroupName([dbus.Byte(x) for x in base64.b64decode(identifier)])
+                group = [dbus.Byte(x) for x in base64.b64decode(identifier)]
+                name = signal.getGroupName(group)
+                for number in signal.getGroupMembers(group):
+                    nicklist.append(signal.getContactName(number))
             else:
-                name = getSignal().getContactName(identifier)
+                name = signal.getContactName(identifier)
             logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
         except dbus.exceptions.DBusException:
             pass
         buffers[identifier] = weechat.buffer_new(name, cb, identifier, "", "")
         weechat.buffer_set(buffers[identifier], "title", name)
+        if len(nicklist) > 0:
+            weechat.buffer_set(buffers[identifier], "nicklist", "1")
+            weechat.buffer_set(buffers[identifier], "nicklist_display_groups", "0")
+            for nick in nicklist:
+                logger.debug("Adding %s to group %s", nick, identifier)
+                weechat.nicklist_add_nick(buffers[identifier], "", nick, "", "", "", 1)
     return buffers[identifier]
 
 
