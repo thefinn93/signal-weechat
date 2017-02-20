@@ -104,9 +104,29 @@ def signal_cmd_cb(data, buffer, args):
         do_register(args)
     elif command == "verify":
         do_verify(args)
+    elif command == "contact":
+        contact_subcommand(args[1:])
     else:
         weechat.prnt("", "Unrecognized command! try /help signal")
     return weechat.WEECHAT_RC_OK
+
+
+def contact_subcommand(args):
+    logger.debug("Running contact subcommand with args %s", args)
+    if len(args) == 0:
+        weechat.prnt("", "not enough arguments! try /help signal")
+        return None
+    command = args[0]
+    if command in ["update", "add"]:
+        if len(args) > 2:
+            number = args[1]
+            name = " ".join(args[2:])
+            getSignal().setContactName(number, name)
+            weechat.prnt("", "Contact %s (%s) created/updated" % (number, name))
+        else:
+            weechat.prnt("", "not enough arguments! try /help signal")
+    else:
+        weechat.prnt("", "not enough arguments! try /help signal")
 
 
 def do_register(args):
