@@ -250,7 +250,7 @@ def daemon_cb(*args):
     return weechat.WEECHAT_RC_OK
 
 
-def launch_daemon():
+def launch_daemon(*_):
     global sock
     pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
     sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
@@ -286,7 +286,9 @@ def main():
                                  "\n".join(signal_help), "%(message)", "send", "")
             weechat.hook_command("signal", "Interact with Signal", "[action]",
                                  "help coming soon...", "%(message)", "signal_cmd_cb", "")
-            weechat.hook_signal('quit', 'quit_cb', '')
+            for signal in ['quit', 'signal_sighup', 'signal_sigquit', 'signal_sigterm', 'upgrade']:
+                weechat.hook_signal(signal, 'quit_cb', '')
+            weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
     except Exception:
         logger.exception("Failed to initialize plugin.")
 
