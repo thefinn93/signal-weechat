@@ -43,6 +43,7 @@ options = {}
 buffers = {}
 sock = None
 daemon_path = __file__
+signalpid = None
 
 
 def prnt(text):
@@ -105,24 +106,20 @@ def quit_cb(_, signal, signal_data):
         pf.close()
     except IOError:
         logger.debug("IOError while reading %s, proly not gonna kill the daemon", pid_path)
-        pid = None
-
-    if not pid:
         return weechat.WEECHAT_RC_OK
 
     try:
-        while 1:
-            os.kill(pid, SIGTERM)
-            logger.debug("Sending SIGTERM to PID %s", pid)
-            time.sleep(0.1)
-    except OSError, err:
-        err = str(err)
-        if err.find("No such process") > 0:
-            if os.path.exists(pid_path):
-                os.remove(pid_path)
-                logger.debug("It's dead!")
-            else:
-                prnt(str(err))
+        os.kill(pid, SIGTERM)
+    except OSError:
+        pass
+    if signalpid is not None:
+        logger.debug("Killing signal-cli process (PID %s)", signalpid)
+        try:
+            os.kill(signalpid, SIGTERM)
+        except:
+            logger.exception("Failed to kill signal-cli process %s", signalpid)
+    else:
+        logger.debug("No known signal-cli process to kill :/")
     return weechat.WEECHAT_RC_OK
 
 
@@ -236,6 +233,7 @@ def buffer_input_group(group, buffer, message):
 
 
 def receive(data, fd):
+    global signalpid
     if not sock:
         return weechat.WEECHAT_RC_OK
     conn, addr = sock.accept()
@@ -245,6 +243,9 @@ def receive(data, fd):
     msg = data.get("msg")
     if data.get("type") == "message":
         show_msg(msg.get("sender"), msg.get("groupId"), msg.get("message"), True)
+    elif data.get("type") == "signal-pid":
+        signalpid = msg
+        prnt("signal daemon running!")
     elif data.get("type") == "meta":
         prnt(msg)
     return weechat.WEECHAT_RC_OK
@@ -395,7 +396,7 @@ class Daemon:
                     if self.signalsubprocess.poll() is None:
                         interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
                         interface.connect_to_signal("MessageReceived", self.dbus_to_sock)
-                        self.send_to_sock("daemon successfully launched", "meta")
+                        self.send_to_sock(self.signalsubprocess.pid, "signal-pid")
                         loop.run()
                     else:
                         logging.debug("signal-cli exited with code %s, assuming unregistered",
