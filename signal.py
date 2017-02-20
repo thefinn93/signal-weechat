@@ -45,6 +45,10 @@ sock = None
 daemon_path = __file__
 
 
+def prnt(text):
+    weechat.prnt("", "signal-cli\t%s" % text)
+
+
 def init_config():
     global default_options, options, bus, signal
     for option, default_value in default_options.items():
@@ -54,7 +58,7 @@ def init_config():
     if options.get('debug', '') != '':
         logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
     if len(options.get('number', '')) == 0:
-        weechat.prnt("", "Set your number with /set plugins.var.python.signal.number +12024561414")
+        prnt("Set your number with /set plugins.var.python.signal.number +12024561414")
     else:
         logger.debug("Number is '%s'", options.get('number'))
         launch_daemon()
@@ -82,7 +86,7 @@ def getSignal():
 
 def send(data, buffer, args):
     if len(args) == 0:
-        weechat.prnt("", "Not enough arguments! Try /help smg")
+        prnt("Not enough arguments! Try /help smg")
     elif " " not in args:
         get_buffer(args, False)
     else:
@@ -92,13 +96,15 @@ def send(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 
-def quit_cb(pid_path, signal, signal_data):
+def quit_cb(_, signal, signal_data):
+    logger.debug("%s signal (%s) received! Killing daemon...", signal, signal_data)
     pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
     try:
         pf = file(pid_path, 'r')
         pid = int(pf.read().strip())
         pf.close()
     except IOError:
+        logger.debug("IOError while reading %s, proly not gonna kill the daemon", pid_path)
         pid = None
 
     if not pid:
@@ -107,20 +113,22 @@ def quit_cb(pid_path, signal, signal_data):
     try:
         while 1:
             os.kill(pid, SIGTERM)
+            logger.debug("Sending SIGTERM to PID %s", pid)
             time.sleep(0.1)
     except OSError, err:
         err = str(err)
         if err.find("No such process") > 0:
             if os.path.exists(pid_path):
                 os.remove(pid_path)
+                logger.debug("It's dead!")
             else:
-                weechat.prnt("", str(err))
+                prnt(str(err))
     return weechat.WEECHAT_RC_OK
 
 
 def signal_cmd_cb(data, buffer, args):
     if len(args) == 0:
-        weechat.prnt("", "not enough arguments! try /help signal")
+        prnt("not enough arguments! try /help signal")
         return weechat.WEECHAT_RC_OK
     args = args.split(" ")
     command = args[0]
@@ -131,14 +139,14 @@ def signal_cmd_cb(data, buffer, args):
     elif command == "contact":
         contact_subcommand(args[1:])
     else:
-        weechat.prnt("", "Unrecognized command! try /help signal")
+        prnt("Unrecognized command! try /help signal")
     return weechat.WEECHAT_RC_OK
 
 
 def contact_subcommand(args):
     logger.debug("Running contact subcommand with args %s", args)
     if len(args) == 0:
-        weechat.prnt("", "not enough arguments! try /help signal")
+        prnt("not enough arguments! try /help signal")
         return None
     command = args[0]
     if command in ["update", "add"]:
@@ -146,16 +154,16 @@ def contact_subcommand(args):
             number = args[1]
             name = " ".join(args[2:])
             getSignal().setContactName(number, name)
-            weechat.prnt("", "Contact %s (%s) created/updated" % (number, name))
+            prnt("Contact %s (%s) created/updated" % (number, name))
         else:
-            weechat.prnt("", "not enough arguments! try /help signal")
+            prnt("not enough arguments! try /help signal")
     else:
-        weechat.prnt("", "not enough arguments! try /help signal")
+        prnt("not enough arguments! try /help signal")
 
 
 def do_register(args):
     if len(args) != 2:
-        weechat.prnt("", "Incorrect usage. Try /help signal")
+        prnt("Incorrect usage. Try /help signal")
         return None
     number = args[1]
     weechat.hook_process('signal-cli -u %s register' % number, 300, "register_cb", number)
@@ -163,14 +171,14 @@ def do_register(args):
 
 def register_cb(number, command, code, out, err):
     logger.debug("Registration for %s (%s) exited with code %s, out %s err %s", number, command, code, out, err)
-    weechat.prnt("", "A verification code has been texted to %s. Run /signal verify %s [code] when you receive it" %
-                 (number, number))
+    prnt("A verification code has been texted to %s. Run /signal verify %s [code] when you receive it" %
+         (number, number))
     return weechat.WEECHAT_RC_OK
 
 
 def do_verify(args):
     if len(args) != 3:
-        weechat.prnt("", "Incorrect arguments. Try /help signal")
+        prnt("Incorrect arguments. Try /help signal")
         return None
     number = args[1]
     code = args[2]
@@ -180,7 +188,7 @@ def do_verify(args):
 
 def verify_cb(number, command, code, out, err):
     logger.debug("Registration for %s (%s) exited with code %s, out %s err %s", number, command, code, out, err)
-    weechat.prnt("", "Verification probably succeeded. Trying to start listening for messages...")
+    prnt("Verification probably succeeded. Trying to start listening for messages...")
     weechat.config_set_plugin("number", number)
     return weechat.WEECHAT_RC_OK
 
@@ -238,12 +246,11 @@ def receive(data, fd):
     if data.get("type") == "message":
         show_msg(msg.get("sender"), msg.get("groupId"), msg.get("message"), True)
     elif data.get("type") == "meta":
-        weechat.prnt("", msg)
+        prnt(msg)
     return weechat.WEECHAT_RC_OK
 
 
 def daemon_cb(*args):
-    weechat.prnt("", "Daemon launched!")
     logger.info("Daemon successfully launched: %s", args)
     return weechat.WEECHAT_RC_OK
 
@@ -262,12 +269,11 @@ def launch_daemon(*_):
     sock.listen(5)
 
     weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
-    weechat.prnt("", "Listening on %s" % sock_path)
 
     logger.debug("Preparing to launch daemon...")
     daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number')]
     if options.get('debug', '') != '':
-        daemon_command += options.get('debug', '')
+        daemon_command.append(options.get('debug', ''))
     weechat.hook_process(" ".join(daemon_command), 10, "daemon_cb", "")
 
 
@@ -298,10 +304,12 @@ def main():
 class Daemon:
         signalsubprocess = None
 
-        def __init__(self, sock_path, pidfile, number):
+        def __init__(self, sock_path, pidfile, number, filename=None):
                 self.pidfile = pidfile
                 self.sock_path = sock_path
                 self.number = number
+                if filename is not None:
+                    logging.basicConfig(filename=filename, level=logging.DEBUG)
 
         def daemonize(self):
                 """
@@ -340,9 +348,12 @@ class Daemon:
                 file(self.pidfile, 'w+').write("%s\n" % pid)
 
         def delpid(self):
-                if self.signalsubprocess is not None:
-                    self.signalsubprocess.kill()
-                os.remove(self.pidfile)
+            logger.debug("Shutting down daemon")
+            if self.signalsubprocess is not None:
+                logger.debug("Killing signal-cli subprocess...")
+                self.signalsubprocess.kill()
+            logger.debug("Removing pid file %s", self.pidfile)
+            os.remove(self.pidfile)
 
         def start(self):
                 """
@@ -370,10 +381,9 @@ class Daemon:
                 You should override this method when you subclass Daemon. It will be called after the process has been
                 daemonized by start() or restart().
                 """
-                if len(sys.argv) >= 5:
-                    logging.basicConfig(filename=sys.argv[4], level=logging.DEBUG)
+
                 try:
-                    logger.debug("Daemon running!")
+                    logger.debug("Daemon running as %s", os.getpid())
                     self.signalsubprocess = subprocess.Popen(['signal-cli', '-u', self.number, 'daemon'])
                     signal = None
                     while signal is None and self.signalsubprocess.poll() is None:
@@ -385,7 +395,7 @@ class Daemon:
                     if self.signalsubprocess.poll() is None:
                         interface = dbus.Interface(signal, dbus_interface='org.asamk.Signal')
                         interface.connect_to_signal("MessageReceived", self.dbus_to_sock)
-                        self.send_to_sock("Connected to signal-cli", "meta")
+                        self.send_to_sock("daemon successfully launched", "meta")
                         loop.run()
                     else:
                         logging.debug("signal-cli exited with code %s, assuming unregistered",
