@@ -39,7 +39,8 @@ default_options = {
     'debug': '',
     'sentry_dsn': '',
     'number': '',
-    'signal_cli_update_url': 'https://api.github.com/repos/AsamK/signal-cli/releases/latest'
+    'signal_cli_update_url': 'https://api.github.com/repos/AsamK/signal-cli/releases/latest',
+    'signal_cli_command': 'signal-cli'
 }
 
 options = {}
@@ -67,6 +68,7 @@ def init_config():
         logger.debug("Number is '%s'", options.get('number'))
         launch_daemon()
     logger.debug("Initialized configuration")
+    return weechat.WEECHAT_RC_OK
 
 
 def show_msg(number, group, message, incoming):
@@ -100,8 +102,7 @@ def send(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 
-def quit_cb(_, signal, signal_data):
-    logger.debug("%s signal (%s) received! Killing daemon...", signal, signal_data)
+def kill_daemon(*args):
     pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
     try:
         pf = file(pid_path, 'r')
@@ -168,7 +169,7 @@ def do_register(args):
         prnt("Incorrect usage. Try /help signal")
         return None
     number = args[1]
-    weechat.hook_process('signal-cli -u %s register' % number, 3000, "register_cb", number)
+    weechat.hook_process('%s -u %s register' % (options['signal_cli_command'], number), 3000, "register_cb", number)
 
 
 def register_cb(number, command, code, out, err):
@@ -184,7 +185,8 @@ def do_verify(args):
         return None
     number = args[1]
     code = args[2]
-    weechat.hook_process('signal-cli -u %s verify %s' % (number, code), 3000, "verify_cb", number)
+    weechat.hook_process('%s -u %s verify %s' % (options['signal_cli_command'], number, code), 3000, "verify_cb",
+                         number)
     return weechat.WEECHAT_RC_OK
 
 
@@ -263,6 +265,7 @@ def daemon_cb(*args):
 
 def launch_daemon(*_):
     global sock
+    kill_daemon()
     pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
     sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
     try:
@@ -285,7 +288,7 @@ def launch_daemon(*_):
 
 # Signal-cli Update BS
 def check_update(*_):
-    weechat.hook_process('signal-cli -v', 10000, 'current_version_cb', '')
+    weechat.hook_process('%s -v' % options['signal_cli_command'], 10000, 'current_version_cb', '')
     return weechat.WEECHAT_RC_OK
 
 
@@ -305,25 +308,32 @@ def update_url_cb(current, _, rc, out, err):
     latest = release['name'].split(" ")[-1]
     if latest != current:
         url = release['assets'][0]['browser_download_url']
-        filename = "/tmp/%s" % release['assets'][0]['name']
+        filename = "/tmp/signal-cli-%s.tar.gz" % latest
         prnt("Latest release is %s, but we're running %s! Upgrading (%s)" % (latest, current, url))
         weechat.hook_process_hashtable('url:%s' % url,
                                        {"useragent": useragent, "file_out": filename},
-                                       60000, 'update_download_cb', filename)
-        # Make the signal-cli folder, hope it gets done before the download finishes
-        weechat.hook_process("mkdir %s/signal-cli" % weechat.info_get("weechat_dir", ""), 1000, '', '')
+                                       60000, 'update_download_cb', latest)
     return weechat.WEECHAT_RC_OK
 
 
-def update_download_cb(filename, url, rc, out, err):
+def update_download_cb(new_version, url, rc, out, err):
+    weechat.hook_process("mkdir %s/signal-cli" % weechat.info_get("weechat_dir", ""), 1000, 'extract_new_version',
+                         new_version)
+    return weechat.WEECHAT_RC_OK
+
+
+def extract_new_version(new_version, url, rc, out, err):
     logger.debug("Update download finished! Signed binaries are for suckers so we're just gonna extract it!")
-    weechat.hook_process('tar xzf %s -C %s/signal-cli' % (filename, weechat.info_get("weechat_dir", "")), 60000,
-                         'update_extract_cb', filename)
+    tarball = "/tmp/signal-cli-%s.tar.gz" % new_version
+    weechat.hook_process('tar xzf %s -C %s/signal-cli' % (tarball, weechat.info_get("weechat_dir", "")), 60000,
+                         'update_extract_cb', new_version)
     return weechat.WEECHAT_RC_OK
 
 
-def update_extract_cb(filename, command, rc, out, err):
-    prnt("Downloaded and extracted %s" % filename)
+def update_extract_cb(new_version, command, rc, out, err):
+    new_bin = "%s/signal-cli/signal-cli-%s/bin/signal-cli" % (weechat.info_get("weechat_dir", ""), new_version)
+    prnt("Downloaded and extracted signal-cli %s, updating signal-cli command option..." % new_bin)
+    weechat.config_set_plugin("signal_cli_command", new_bin)
     return weechat.WEECHAT_RC_OK
 
 
@@ -343,7 +353,7 @@ def main():
             weechat.hook_command("signal", "Interact with Signal", "[action]",
                                  "help coming soon...", "%(message)", "signal_cmd_cb", "")
             for signal in ['quit', 'signal_sighup', 'signal_sigquit', 'signal_sigterm', 'upgrade']:
-                weechat.hook_signal(signal, 'quit_cb', '')
+                weechat.hook_signal(signal, 'kill_daemon', '')
             weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
     except Exception:
         logger.exception("Failed to initialize plugin.")
