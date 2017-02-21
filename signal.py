@@ -74,7 +74,11 @@ def init_config():
 
 def show_msg(number, group, message, incoming):
     buf = get_buffer(group if len(group) > 0 else number, len(group) > 0)
-    name = getSignal().getContactName(number) if incoming else "Me"
+    name = "Me"
+    if incoming:
+        name = getSignal().getContactName(number)
+        if len(name) == 0:
+            name = number
     weechat.prnt(buf, "%s\t%s" % (name, message))
 
 
@@ -222,9 +226,14 @@ def get_buffer(identifier, isGroup):
                 group = [dbus.Byte(x) for x in base64.b64decode(identifier)]
                 name = signal.getGroupName(group)
                 for number in signal.getGroupMembers(group):
-                    nicklist.append(signal.getContactName(number))
+                    contact_name = signal.getContactName(number)
+                    if len(contact_name) == 0:
+                        contact_name = number
+                    nicklist.append(contact_name)
             else:
                 name = signal.getContactName(identifier)
+                if len(name) == 0:
+                    name = identifier
             logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
         except dbus.exceptions.DBusException:
             pass
