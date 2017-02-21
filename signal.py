@@ -68,17 +68,11 @@ def init_config():
             weechat.config_set_plugin(option, default_value)
         options[option] = weechat.config_get_plugin(option)
     if options.get('autoconfig') == 'on':
-        check_update()
+        check_update("install")
     if options.get('number', '') != '':
         launch_daemon()
     else:
-        prnt("")
-        prnt("")
-        prnt("Welcome to Signal Weechat! To begin, you must register or link to an existing device:")
-        prnt("To register a new number: %s/signal register +12024561414" % weechat.color("bold"))
-        prnt("To link to an existing device: %s/signal link" % weechat.color("bold"))
-        prnt("")
-        prnt("")
+        check_update("welcome")
     return weechat.WEECHAT_RC_OK
 
 
@@ -169,7 +163,7 @@ def signal_cmd_cb(data, buffer, args):
     elif command == "contact":
         contact_subcommand(args[1:])
     elif command in ["update", "upgrade"]:
-        check_update()
+        check_update("install")
     elif command == "link":
         do_link()
     else:
@@ -383,19 +377,33 @@ def launch_daemon(*_):
 
 
 # Signal-cli Update BS
-def check_update(*_):
-    weechat.hook_process('%s -v' % options['signal_cli_command'], 10000, 'current_version_cb', '')
+def check_update(action, *_):
+    weechat.hook_process('%s -v' % options['signal_cli_command'], 10000, 'current_version_cb', action)
     return weechat.WEECHAT_RC_OK
 
 
-def current_version_cb(_, command, rc, out, err):
+def current_version_cb(action, command, rc, out, err):
     logger.debug("%s exited with %s", command, rc)
-    if len(err) > 0:
-        prnt("Error while checking current version: %s" % err)
     version = out.split(" ")[-1].strip()
-    prnt("Current version of signal-cli is %s" % version)
-    weechat.hook_process_hashtable('url:%s' % options.get('signal_cli_update_url'), {"useragent": useragent},
-                                   10000, 'update_url_cb', version)
+    if action == "install":
+        prnt("Current version of signal-cli is %s" % version)
+        weechat.hook_process_hashtable('url:%s' % options.get('signal_cli_update_url'), {"useragent": useragent},
+                                       10000, 'update_url_cb', version)
+    elif action == "welcome":
+        prnt("")
+        prnt("")
+        if version != "":
+            prnt("Welcome to Signal Weechat! You're running signal-cli %s.")
+            prnt("To begin, you must register or link to an existing device:" % version)
+        else:
+            prnt("You don't have signal-cli! Run %s/signal install%s first to get it!" %
+                 (weechat.color("bold"), weechat.color("reset")))
+            prnt("")
+            prnt("Once you have it:")
+        prnt("To register a new number: %s/signal register +12024561414" % weechat.color("bold"))
+        prnt("To link to an existing device: %s/signal link" % weechat.color("bold"))
+        prnt("")
+        prnt("")
     return weechat.WEECHAT_RC_OK
 
 
@@ -452,7 +460,7 @@ def main():
                 weechat.hook_signal(signal, 'kill_daemon', '')
             weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
             if options.get('autoupgrade') == 'on':
-                weechat.hook_timer(3*24*60*60*1000, 0, 0, 'check_update', '', '')
+                weechat.hook_timer(3*24*60*60*1000, 0, 0, 'check_update', '', 'install')
     except Exception:
         logger.exception("Failed to initialize plugin.")
 
