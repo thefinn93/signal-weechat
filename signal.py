@@ -158,6 +158,8 @@ def signal_cmd_cb(data, buffer, args):
         contact_subcommand(args[1:])
     elif command in ["update", "upgrade"]:
         check_update()
+    elif command == "link":
+        do_link()
     else:
         prnt("Unrecognized command! try /help signal")
     return weechat.WEECHAT_RC_OK
@@ -211,6 +213,19 @@ def verify_cb(number, command, code, out, err):
     logger.debug("Registration for %s (%s) exited with code %s, out %s err %s", number, command, code, out, err)
     prnt("Verification probably succeeded. Trying to start listening for messages...")
     weechat.config_set_plugin("number", number)
+    return weechat.WEECHAT_RC_OK
+
+
+def do_link():
+    kill_daemon()
+    pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
+    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
+
+    daemon_command = ['python', daemon_path, sock_path, pid_path, 'link', options.get('signal_cli_command')]
+    if options.get('debug', '') != '':
+        daemon_command.append(options.get('debug', ''))
+    logger.debug("Preparing to launch daemon with comand %s" % " ".join(daemon_command))
+    weechat.hook_process(" ".join(daemon_command), 1000, "daemon_cb", "")
     return weechat.WEECHAT_RC_OK
 
 
@@ -275,6 +290,10 @@ def receive(data, fd):
     elif data.get("type") == "signal-pid":
         signalpid = msg
         prnt("signal daemon running!")
+    elif data.get("type") == "link-uri":
+        prnt("Link your device by visiting %s" % msg)
+    elif data.get("type") == "set-number":
+        weechat.config_set_plugin("number", msg)
     elif data.get("type") == "meta":
         prnt(msg)
     return weechat.WEECHAT_RC_OK
@@ -443,32 +462,31 @@ class Daemon:
             os.remove(self.pidfile)
 
         def start(self):
-                """
-                Start the daemon
-                """
-                # Check for a pidfile to see if the daemon already runs
+            """
+            Start the daemon
+            """
+            # Check for a pidfile to see if the daemon already runs
+            try:
+                pf = file(self.pidfile, 'r')
+                pid = int(pf.read().strip())
+                pf.close()
+            except IOError:
+                pid = None
+
+            if pid:
                 try:
-                        pf = file(self.pidfile, 'r')
-                        pid = int(pf.read().strip())
-                        pf.close()
-                except IOError:
-                        pid = None
+                    os.kill(pid, SIGTERM)
+                except OSError:
+                    pass
+                os.unlink(self.pidfile)
 
-                if pid:
-                        message = "pidfile %s already exist. Daemon already running?\n"
-                        sys.stderr.write(message % self.pidfile)
-                        sys.exit(1)
-
-                # Start the daemon
-                self.daemonize()
+            self.daemonize()
+            if self.number == "link":
+                self.link()
+            else:
                 self.run()
 
         def run(self):
-                """
-                You should override this method when you subclass Daemon. It will be called after the process has been
-                daemonized by start() or restart().
-                """
-
                 try:
                     logger.debug("Daemon running as %s", os.getpid())
                     self.signalsubprocess = subprocess.Popen([self.signalcli, '-u', self.number, 'daemon'])
@@ -496,6 +514,20 @@ class Daemon:
                         self.send_to_sock(message, "meta")
                 except:
                     logger.exception("The daemon hath died a horrible death :(")
+
+        def link(self):
+            try:
+                subp = subprocess.Popen([self.signalcli, 'link'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                uri = subp.stdout.readline()
+                self.send_to_sock(uri, "link-uri")
+                out, err = subp.communicate()
+                if len(err) > 0:
+                    self.send_to_sock(err, "meta")
+                if len(out) > 0:
+                    number = out.split(" ")[-1]
+                    self.send_to_sock(number, "set-number")
+            except:
+                logger.exception("The daemon hath died a horrible death :(")
 
         def dbus_to_sock(self, timestamp, sender, groupId, message, attachments):
             groupId = base64.b64encode("".join([chr(x) for x in groupId]))
