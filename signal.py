@@ -72,7 +72,13 @@ def init_config():
     if options.get('number', '') != '':
         launch_daemon()
     else:
-        prnt("Set your number with /set plugins.var.python.signal.number +12024561414")
+        prnt("")
+        prnt("")
+        prnt("Welcome to Signal Weechat! To begin, you must register or link to an existing device:")
+        prnt("To register a new number: %s/signal register +12024561414" % weechat.color("bold"))
+        prnt("To link to an existing device: %s/signal link" % weechat.color("bold"))
+        prnt("")
+        prnt("")
     return weechat.WEECHAT_RC_OK
 
 
@@ -89,10 +95,6 @@ def show_msg(number, group, message, incoming):
 def config_changed(data, option, value):
     global options
     logger.debug('Config option %s changed to %s', option, value)
-    try:
-        init_config()
-    except Exception:
-        logger.exception("Failed to reload config")
     options[option] = value
     if option == 'plugins.var.python.signal.debug' and value != '':
         logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
