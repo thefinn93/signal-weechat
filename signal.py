@@ -36,7 +36,7 @@ SCRIPT_BUFFER = 'signal'
 
 useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
-logging.basicConfig(filename='signal-weechat.log', level=logging.DEBUG)
+
 logger = logging.getLogger(logger_name)
 
 default_options = {
