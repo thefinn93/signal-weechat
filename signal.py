@@ -315,11 +315,6 @@ def receive(data, fd):
     return weechat.WEECHAT_RC_OK
 
 
-def qr_cb(data, buffer, message):
-    show_link_qr(message)
-    return weechat.WEECHAT_RC_OK
-
-
 def show_link_qr(uri):
     logger.debug("encoding as QR code: %s", uri)
     prnt("Open Signal on your phone and navigate to Settings > Linked devices. Tap the button to add a new device, "
@@ -450,7 +445,6 @@ def main():
                                  "\n".join(signal_help), "%(message)", "send", "")
             weechat.hook_command("signal", "Interact with Signal", "[action]",
                                  "help coming soon...", "%(message)", "signal_cmd_cb", "")
-            weechat.hook_command('qr', "fuck off", "[a]", "fuck off!", "%(message)", "qr_cb", "")
             for signal in ['quit', 'signal_sighup', 'signal_sigquit', 'signal_sigterm', 'upgrade']:
                 weechat.hook_signal(signal, 'kill_daemon', '')
             weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
