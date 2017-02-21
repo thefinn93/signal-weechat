@@ -63,7 +63,8 @@ def init_config():
         if not weechat.config_is_set_plugin(option):
             weechat.config_set_plugin(option, default_value)
         options[option] = weechat.config_get_plugin(option)
-    check_update()
+    if options.get('autoconfig') == 'on':
+        check_update()
     if options.get('number', '') != '':
         launch_daemon()
     else:
