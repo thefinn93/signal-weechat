@@ -308,16 +308,38 @@ def receive(data, fd):
     return weechat.WEECHAT_RC_OK
 
 
+def qr_cb(data, buffer, message):
+    show_link_qr(message)
+    return weechat.WEECHAT_RC_OK
+
+
 def show_link_qr(uri):
     logger.debug("encoding as QR code: %s", uri)
     code = qrcode.QRCode()
     code.add_data(uri)
     # code.print_ascii()
-    for line in code.get_matrix():
-        l = ""
-        for c in line:
-            l += "%s█" % weechat.color("chat" if c else "reverse")
-        prnt(l)
+    matrix = code.get_matrix()
+    lastline = len(matrix)-1
+    for y in range(0, len(matrix), 2):
+        line = ""
+        for x in range(0, len(matrix[y])):
+            if matrix[y][x]:
+                # This line is black
+                if lastline > y and matrix[y+1][x]:
+                    # The next line is also black
+                    line += "█"
+                else:
+                    # The next line is white or non existant
+                    line += "▀"
+            else:
+                # This line is white
+                if lastline > y and matrix[y+1][x]:
+                    # The next line is black
+                    line += "▄"
+                else:
+                    # The next line is also white or non-existant
+                    line += " "
+        prnt("%s%s" % (weechat.color("black,white"), line))
 
 
 def daemon_cb(*args):
@@ -420,6 +442,7 @@ def main():
                                  "\n".join(signal_help), "%(message)", "send", "")
             weechat.hook_command("signal", "Interact with Signal", "[action]",
                                  "help coming soon...", "%(message)", "signal_cmd_cb", "")
+            weechat.hook_command('qr', "fuck off", "[a]", "fuck off!", "%(message)", "qr_cb", "")
             for signal in ['quit', 'signal_sighup', 'signal_sigquit', 'signal_sigterm', 'upgrade']:
                 weechat.hook_signal(signal, 'kill_daemon', '')
             weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
