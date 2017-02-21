@@ -299,6 +299,11 @@ def receive(data, fd):
         prnt("signal daemon running!")
     elif data.get("type") == "link-uri":
         prnt("Link your device by visiting %s" % msg)
+        if not qrcode:
+            try:
+                import qrcode  # noqa
+            except ImportError:
+                pass
         if qrcode:
             show_link_qr(msg)
         else:
