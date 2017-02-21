@@ -405,7 +405,7 @@ def update_url_cb(current, _, rc, out, err):
     if latest != current:
         url = release['assets'][0]['browser_download_url']
         filename = "/tmp/signal-cli-%s.tar.gz" % latest
-        prnt("Latest release is %s, but we're running %s! Upgrading (%s)" % (latest, current, url))
+        prnt("Latest release is %s, but we're running %s! Downloading %s" % (latest, current, url))
         weechat.hook_process_hashtable('url:%s' % url,
                                        {"useragent": useragent, "file_out": filename},
                                        60000, 'update_download_cb', latest)
@@ -428,7 +428,7 @@ def extract_new_version(new_version, url, rc, out, err):
 
 def update_extract_cb(new_version, command, rc, out, err):
     new_bin = "%s/signal-cli/signal-cli-%s/bin/signal-cli" % (weechat.info_get("weechat_dir", ""), new_version)
-    prnt("Downloaded and extracted signal-cli %s, updating signal-cli command option..." % new_bin)
+    prnt("Downloaded and extracted signal-cli %s!" % new_bin)
     change_config("signal_cli_command", new_bin)
     return weechat.WEECHAT_RC_OK
 
