@@ -299,11 +299,6 @@ def receive(data, fd):
         prnt("signal daemon running!")
     elif data.get("type") == "link-uri":
         prnt("Link your device by visiting %s" % msg)
-        if not qrcode:
-            try:
-                import qrcode  # noqa
-            except ImportError:
-                pass
         if qrcode:
             show_link_qr(msg)
         else:
@@ -575,7 +570,7 @@ class Daemon:
                 if len(err) > 0:
                     self.send_to_sock(err, "meta")
                 if len(out) > 0:
-                    number = out.split(" ")[-1]
+                    number = out.split(" ")[-1].strip()
                     self.send_to_sock(number, "set-number")
             except:
                 logger.exception("The daemon hath died a horrible death :(")
