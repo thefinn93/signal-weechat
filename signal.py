@@ -312,12 +312,12 @@ def show_link_qr(uri):
     logger.debug("encoding as QR code: %s", uri)
     code = qrcode.QRCode()
     code.add_data(uri)
-    code.print_ascii()
-    # for line in code.get_matrix():
-    #     l = ""
-    #     for c in line:
-    #         l += "█" if c else " "
-    #     prnt(l)
+    # code.print_ascii()
+    for line in code.get_matrix():
+        l = ""
+        for c in line:
+            l += "%s█" % weechat.color("chat" if c else "reverse")
+        prnt(l)
 
 
 def daemon_cb(*args):
