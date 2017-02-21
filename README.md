@@ -11,8 +11,9 @@ Use Signal (via [signal-cli](https://github.com/AsamK/signal-cli)) in weechat.
 
 ## Installing
 
-3. Install this script: `cp signal.py ~/.weechat/python/signal.py`
-5. Load it in weechat: `/python load signal.py`
+1. Install this script: `cp signal.py ~/.weechat/python/signal.py`
+2. Load it in weechat: `/python load signal.py`
+3. Either link to an existing device: `/signal link` or register a new account: `/signal register +12024561414`
 
 
 ## Use
@@ -25,7 +26,6 @@ Use Signal (via [signal-cli](https://github.com/AsamK/signal-cli)) in weechat.
 There are numerous issues in the GitHub issues for this project, but the following limitations are imposed
 by signal-cli's dbus interface. Some of them have open issues on signal-cli:
 
-* Can't register or link other devices.
 * Can only register one number.
 * No read receipts
 
