@@ -41,7 +41,8 @@ default_options = {
     'sentry_dsn': '',
     'number': '',
     'signal_cli_update_url': 'https://api.github.com/repos/AsamK/signal-cli/releases/latest',
-    'signal_cli_command': 'signal-cli'
+    'signal_cli_command': 'signal-cli',
+    'autoupgrade': 'off'
 }
 
 options = {}
@@ -368,7 +369,8 @@ def main():
             for signal in ['quit', 'signal_sighup', 'signal_sigquit', 'signal_sigterm', 'upgrade']:
                 weechat.hook_signal(signal, 'kill_daemon', '')
             weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
-            weechat.hook_timer(3*24*60*60*1000, 0, 0, 'check_update', '', '')
+            if options.get('autoupgrade') == 'on':
+                weechat.hook_timer(3*24*60*60*1000, 0, 0, 'check_update', '', '')
     except Exception:
         logger.exception("Failed to initialize plugin.")
 
