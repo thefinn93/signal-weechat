@@ -315,9 +315,10 @@ def qr_cb(data, buffer, message):
 
 def show_link_qr(uri):
     logger.debug("encoding as QR code: %s", uri)
+    prnt("Open Signal on your phone and navigate to Settings > Linked devices. Tap the button to add a new device, "
+         "then scan the code above.")
     code = qrcode.QRCode()
     code.add_data(uri)
-    # code.print_ascii()
     matrix = code.get_matrix()
     lastline = len(matrix)-1
     for y in range(0, len(matrix), 2):
