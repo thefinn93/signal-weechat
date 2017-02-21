@@ -32,6 +32,7 @@ SCRIPT_BUFFER = 'signal'
 
 useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
+logging.basicConfig(filename='signal-weechat.log', level=logging.DEBUG)
 logger = logging.getLogger(logger_name)
 
 default_options = {
@@ -51,6 +52,7 @@ signalpid = None
 
 
 def prnt(text):
+    logger.info(text)
     weechat.prnt("", "signal-cli\t%s" % text)
 
 
@@ -60,14 +62,11 @@ def init_config():
         if not weechat.config_is_set_plugin(option):
             weechat.config_set_plugin(option, default_value)
         options[option] = weechat.config_get_plugin(option)
-    if options.get('debug', '') != '':
-        logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
-    if len(options.get('number', '')) == 0:
-        prnt("Set your number with /set plugins.var.python.signal.number +12024561414")
-    else:
-        logger.debug("Number is '%s'", options.get('number'))
+    check_update()
+    if options.get('number', '') != '':
         launch_daemon()
-    logger.debug("Initialized configuration")
+    else:
+        prnt("Set your number with /set plugins.var.python.signal.number +12024561414")
     return weechat.WEECHAT_RC_OK
 
 
@@ -78,10 +77,22 @@ def show_msg(number, group, message, incoming):
 
 
 def config_changed(data, option, value):
+    global options
+    logger.debug('Config option %s changed to %s', option, value)
     try:
         init_config()
     except Exception:
         logger.exception("Failed to reload config")
+    options[option] = value
+    if option == 'plugins.var.python.signal.debug' and value != '':
+        logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
+    if option == 'plugins.var.python.signal.debug':
+        if len(value) == 0:
+            prnt("Set your number with /set plugins.var.python.signal.number +12024561414")
+        else:
+            logger.debug("Number is '%s'", value)
+    if option.split(".")[-1] in ['number', 'signal_cli_command']:
+        launch_daemon()
     return weechat.WEECHAT_RC_OK
 
 
@@ -279,12 +290,13 @@ def launch_daemon(*_):
 
     weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
 
-    logger.debug("Preparing to launch daemon...")
     daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number'),
                       options.get('signal_cli_command')]
     if options.get('debug', '') != '':
         daemon_command.append(options.get('debug', ''))
+    logger.debug("Preparing to launch daemon with comand %s" % " ".join(daemon_command))
     weechat.hook_process(" ".join(daemon_command), 1000, "daemon_cb", "")
+    return weechat.WEECHAT_RC_OK
 
 
 # Signal-cli Update BS
@@ -356,6 +368,7 @@ def main():
             for signal in ['quit', 'signal_sighup', 'signal_sigquit', 'signal_sigterm', 'upgrade']:
                 weechat.hook_signal(signal, 'kill_daemon', '')
             weechat.hook_signal('upgrade_ended', 'launch_daemon', '')
+            weechat.hook_timer(3*24*60*60*1000, 0, 0, 'check_update', '', '')
     except Exception:
         logger.exception("Failed to initialize plugin.")
 
