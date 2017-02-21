@@ -98,7 +98,7 @@ def config_changed(data, option, value):
     options[option] = value
     if option == 'plugins.var.python.signal.debug' and value != '':
         logging.basicConfig(filename=options.get('debug'), level=logging.DEBUG)
-    if option == 'plugins.var.python.signal.debug':
+    if option == 'plugins.var.python.signal.number':
         if len(value) == 0:
             prnt("Set your number with /set plugins.var.python.signal.number +12024561414")
         else:
@@ -106,6 +106,12 @@ def config_changed(data, option, value):
     if option.split(".")[-1] in ['number', 'signal_cli_command']:
         launch_daemon()
     return weechat.WEECHAT_RC_OK
+
+
+def change_config(option, value):
+    global options
+    options[option] = value
+    config_changed(None, option, value)
 
 
 def getSignal():
@@ -218,7 +224,7 @@ def do_verify(args):
 def verify_cb(number, command, code, out, err):
     logger.debug("Registration for %s (%s) exited with code %s, out %s err %s", number, command, code, out, err)
     prnt("Verification probably succeeded. Trying to start listening for messages...")
-    weechat.config_set_plugin("number", number)
+    change_config("number", number)
     return weechat.WEECHAT_RC_OK
 
 
@@ -304,7 +310,8 @@ def receive(data, fd):
         else:
             prnt("If you'd prefer to scan a barcode, run pip install qrcode and restart this script.")
     elif data.get("type") == "set-number":
-        weechat.config_set_plugin("number", msg)
+        change_config("number", msg)
+        prnt("Successfully linked to %s" % msg)
     elif data.get("type") == "meta":
         prnt(msg)
     return weechat.WEECHAT_RC_OK
@@ -362,15 +369,16 @@ def init_socket():
 
 
 def launch_daemon(*_):
-    init_socket()
-    pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
-    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
-    daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number'),
-                      options.get('signal_cli_command')]
-    if options.get('debug', '') != '':
-        daemon_command.append(options.get('debug', ''))
-    logger.debug("Preparing to launch daemon with comand %s" % " ".join(daemon_command))
-    weechat.hook_process(" ".join(daemon_command), 1000, "daemon_cb", "")
+    if len(options.get('number', '')) > 0:
+        init_socket()
+        pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
+        sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
+        daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number'),
+                          options.get('signal_cli_command')]
+        if options.get('debug', '') != '':
+            daemon_command.append(options.get('debug', ''))
+        logger.debug("Preparing to launch daemon with comand %s" % " ".join(daemon_command))
+        weechat.hook_process(" ".join(daemon_command), 1000, "daemon_cb", "")
     return weechat.WEECHAT_RC_OK
 
 
@@ -421,7 +429,7 @@ def extract_new_version(new_version, url, rc, out, err):
 def update_extract_cb(new_version, command, rc, out, err):
     new_bin = "%s/signal-cli/signal-cli-%s/bin/signal-cli" % (weechat.info_get("weechat_dir", ""), new_version)
     prnt("Downloaded and extracted signal-cli %s, updating signal-cli command option..." % new_bin)
-    weechat.config_set_plugin("signal_cli_command", new_bin)
+    change_config("signal_cli_command", new_bin)
     return weechat.WEECHAT_RC_OK
 
 
