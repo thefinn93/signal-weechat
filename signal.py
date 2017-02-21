@@ -19,6 +19,10 @@ import time
 from signal import SIGTERM
 import atexit
 import subprocess
+try:
+    import qrcode
+except ImportError:
+    qrcode = False
 
 
 SCRIPT_NAME = 'signal'
@@ -218,6 +222,7 @@ def verify_cb(number, command, code, out, err):
 
 def do_link():
     kill_daemon()
+    init_socket()
     pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
     sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
 
@@ -292,6 +297,10 @@ def receive(data, fd):
         prnt("signal daemon running!")
     elif data.get("type") == "link-uri":
         prnt("Link your device by visiting %s" % msg)
+        if qrcode:
+            show_link_qr(msg)
+        else:
+            prnt("If you'd prefer to scan a barcode, run pip install qrcode and restart this script.")
     elif data.get("type") == "set-number":
         weechat.config_set_plugin("number", msg)
     elif data.get("type") == "meta":
@@ -299,15 +308,26 @@ def receive(data, fd):
     return weechat.WEECHAT_RC_OK
 
 
+def show_link_qr(uri):
+    logger.debug("encoding as QR code: %s", uri)
+    code = qrcode.QRCode()
+    code.add_data(uri)
+    code.print_ascii()
+    # for line in code.get_matrix():
+    #     l = ""
+    #     for c in line:
+    #         l += "█" if c else " "
+    #     prnt(l)
+
+
 def daemon_cb(*args):
     logger.info("Daemon successfully launched: %s", args)
     return weechat.WEECHAT_RC_OK
 
 
-def launch_daemon(*_):
+def init_socket():
     global sock
     kill_daemon()
-    pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
     sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
     try:
         os.unlink(sock_path)
@@ -320,6 +340,11 @@ def launch_daemon(*_):
 
     weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
 
+
+def launch_daemon(*_):
+    init_socket()
+    pid_path = '%s/signal.pid' % weechat.info_get("weechat_dir", "")
+    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
     daemon_command = ['python', daemon_path, sock_path, pid_path, options.get('number'),
                       options.get('signal_cli_command')]
     if options.get('debug', '') != '':
@@ -517,7 +542,8 @@ class Daemon:
 
         def link(self):
             try:
-                subp = subprocess.Popen([self.signalcli, 'link'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subp = subprocess.Popen([self.signalcli, 'link', '-n', 'weechat on %s' % socket.getfqdn()],
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 uri = subp.stdout.readline()
                 self.send_to_sock(uri, "link-uri")
                 out, err = subp.communicate()
