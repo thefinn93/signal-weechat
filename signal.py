@@ -44,7 +44,7 @@ default_options = {
     'debug': '',
     'sentry_dsn': '',
     'number': '',
-    'signal_cli_update_url': 'https://api.github.com/repos/AsamK/signal-cli/releases/latest',
+    'signal_cli_update_url': 'https://api.github.com/repos/thefinn93/signal-cli/releases/latest',
     'signal_cli_command': 'signal-cli',
     'autoupgrade': 'off'
 }
