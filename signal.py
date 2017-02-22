@@ -54,6 +54,7 @@ buffers = {}
 sock = None
 daemon_path = __file__
 signalpid = None
+downloads_in_progresss = []
 
 
 def prnt(text):
@@ -408,21 +409,32 @@ def current_version_cb(action, command, rc, out, err):
 
 
 def update_url_cb(current, _, rc, out, err):
+    global downloads_in_progresss
     release = json.loads(out)
     latest = release['name'].split(" ")[-1]
     if latest != current:
-        url = release['assets'][0]['browser_download_url']
-        filename = "/tmp/signal-cli-%s.tar.gz" % latest
-        prnt("Latest release is %s, but we're running %s! Downloading %s" % (latest, current, url))
-        weechat.hook_process_hashtable('url:%s' % url,
-                                       {"useragent": useragent, "file_out": filename},
-                                       60000, 'update_download_cb', latest)
+        prnt("Latest release is %s, but we're running %s!" % (latest, current))
+        for asset in release['assets']:
+            url = asset['browser_download_url']
+            filename = "/tmp/%s" % asset['name']
+            downloads_in_progresss.append(asset['name'])
+            prnt("Downloading %s" % url)
+            weechat.hook_process_hashtable('url:%s' % url,
+                                           {"useragent": useragent, "file_out": filename},
+                                           60000, 'update_download_cb',
+                                           json.dumps({"filename": asset['name'], "version": latest}))
     return weechat.WEECHAT_RC_OK
 
 
-def update_download_cb(new_version, url, rc, out, err):
-    weechat.hook_process("mkdir %s/signal-cli" % weechat.info_get("weechat_dir", ""), 1000, 'extract_new_version',
-                         new_version)
+def update_download_cb(info, url, rc, out, err):
+    global downloads_in_progresss
+    info = json.loads(info)
+    downloads_in_progresss.remove(info.get('filename'))
+    if len(downloads_in_progresss) > 0:
+        prnt("%s finished, still waiting on %s" % (info.get('filename'), ", ".join(downloads_in_progresss)))
+    else:
+        weechat.hook_process("mkdir %s/signal-cli" % weechat.info_get("weechat_dir", ""), 1000, 'extract_new_version',
+                             info.get('version'))
     return weechat.WEECHAT_RC_OK
 
 
