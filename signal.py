@@ -575,7 +575,7 @@ class Daemon:
                         self.send_to_sock(self.signalsubprocess.pid, "signal-pid")
                         loop.run()
                     else:
-                        logging.debug("signal-cli exited with code %s, assuming unregistered",
+                        logger.debug("signal-cli exited with code %s, assuming unregistered",
                                       self.signalsubprocess.poll())
                         message = "We don't have a registration for {number}! Please either register it or link " \
                                   "an existing device:\n\n" \
