@@ -343,17 +343,18 @@ def daemon_cb(*args):
 def init_socket():
     global sock
     kill_daemon()
-    sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
-    try:
-        os.unlink(sock_path)
-    except OSError:
-        if os.path.exists(sock_path):
-            raise
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.bind(sock_path)
-    sock.listen(5)
+    if sock is None:
+        sock_path = '%s/signal.sock' % weechat.info_get("weechat_dir", "")
+        try:
+            os.unlink(sock_path)
+        except OSError:
+            if os.path.exists(sock_path):
+                raise
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.bind(sock_path)
+        sock.listen(5)
 
-    weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
+        weechat.hook_fd(sock.fileno(), 1, 1, 0, 'receive', '')
 
 
 def launch_daemon(*_):
