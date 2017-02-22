@@ -576,7 +576,7 @@ class Daemon:
                         loop.run()
                     else:
                         logger.debug("signal-cli exited with code %s, assuming unregistered",
-                                      self.signalsubprocess.poll())
+                                     self.signalsubprocess.poll())
                         message = "We don't have a registration for {number}! Please either register it or link " \
                                   "an existing device:\n\n" \
                                   "  Register with: /signal register {number}\n" \
