@@ -106,6 +106,7 @@ def change_config(option, value):
     global options
     options[option] = value
     config_changed(None, option, value)
+    weechat.config_set_plugin(option, value)
 
 
 def getSignal():
@@ -164,6 +165,8 @@ def signal_cmd_cb(data, buffer, args):
         contact_subcommand(args[1:])
     elif command in ["update", "upgrade"]:
         check_update("install")
+    elif command == "install":
+        check_update("installIfMissing")
     elif command == "link":
         do_link()
     else:
@@ -233,6 +236,7 @@ def do_link():
         daemon_command.append(options.get('debug', ''))
     logger.debug("Preparing to launch daemon with comand %s" % " ".join(daemon_command))
     weechat.hook_process(" ".join(daemon_command), 1000, "daemon_cb", "")
+    prnt("Preparing to link to a device...")
     return weechat.WEECHAT_RC_OK
 
 
@@ -389,19 +393,24 @@ def current_version_cb(action, command, rc, out, err):
         prnt("Current version of signal-cli is %s" % version)
         weechat.hook_process_hashtable('url:%s' % options.get('signal_cli_update_url'), {"useragent": useragent},
                                        10000, 'update_url_cb', version)
+    if action == "installIfMissing":
+        if version == "":
+            prnt("signal-cli not found, downloading...")
+            current_version_cb("install", command, rc, out, err)
+        else:
+            prnt("signal-cli is already installed. Run %s/signal upgrade%s to get the latest version" %
+                 (weechat.color("bold"), weechat.color("reset")))
     elif action == "welcome":
         prnt("")
         prnt("")
         if version != "":
-            prnt("Welcome to Signal Weechat! You're running signal-cli %s.")
-            prnt("To begin, you must register or link to an existing device:" % version)
+            prnt("Welcome to Signal Weechat! You're running signal-cli %s." % version)
+            prnt("To begin, you must register or link to an existing device:")
+            prnt("To register a new number: %s/signal register +12024561414" % weechat.color("bold"))
+            prnt("To link to an existing device: %s/signal link" % weechat.color("bold"))
         else:
             prnt("You don't have signal-cli! Run %s/signal install%s first to get it!" %
                  (weechat.color("bold"), weechat.color("reset")))
-            prnt("")
-            prnt("Once you have it:")
-        prnt("To register a new number: %s/signal register +12024561414" % weechat.color("bold"))
-        prnt("To link to an existing device: %s/signal link" % weechat.color("bold"))
         prnt("")
         prnt("")
     return weechat.WEECHAT_RC_OK
@@ -438,6 +447,8 @@ def update_extract_cb(new_version, command, rc, out, err):
     new_bin = "%s/signal-cli/signal-cli-%s/bin/signal-cli" % (weechat.info_get("weechat_dir", ""), new_version)
     prnt("Downloaded and extracted signal-cli %s!" % new_bin)
     change_config("signal_cli_command", new_bin)
+    if options.get("number", "") == "":
+        check_update("welcome")
     return weechat.WEECHAT_RC_OK
 
 
