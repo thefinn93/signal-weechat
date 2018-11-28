@@ -1,17 +1,15 @@
 # Signal Weechat
 
-Use Signal (via [signal-cli](https://github.com/AsamK/signal-cli)) in weechat.
+Use Signal (via [signald](https://git.callpipe.com/finn/signald)) in weechat.
 
 ## Dependencies
 
 Required:
 
 * Weechat
-* python-dbus (`pip install dbus-python`/`apt install python-dbus`)
-* java - to run signal-cli
+* signald
 
 Optional:
-* [signal-cli](https://github.com/AsamK/signal-cli) - If you don't have it, run `/signal upgrade` to download and install the latest version
 * [qrcode](https://pypi.python.org/pypi/qrcode) python library (`pip install qrcode`/`apt install python-qrcode`) - required to render QR codes when linking to new devices
 
 
