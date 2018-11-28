@@ -164,16 +164,22 @@ def group_list_cb(payload):
     groups = payload['groups']
 
     for group in groups:
-        groupId = group['groupId']
-        buffer = get_buffer(groupId, True)
-        weechat.buffer_set(buffer, "title", group['name'].encode('utf-8', 'replace'))
-        weechat.buffer_set(buffer, "name", group['name'].encode('utf-8', 'replace'))
-        # if len(nicklist) > 0:
-        #     weechat.buffer_set(buffers[identifier], "nicklist", "1")
-        #     weechat.buffer_set(buffers[identifier], "nicklist_display_groups", "0")
-        #     for nick in nicklist:
-        #         logger.debug("Adding %s to group %s", nick, identifier)
-        #         weechat.nicklist_add_nick(buffers[identifier], "", nick, "", "", "", 1)
+        update_group(group)
+
+
+def update_group(group):
+    groupId = group['groupId']
+    buffer = get_buffer(groupId, True)
+    weechat.buffer_set(buffer, "title", group['name'].encode('utf-8', 'replace'))
+    weechat.buffer_set(buffer, "name", group['name'].encode('utf-8', 'replace'))
+    weechat.buffer_set(buffer, "shortname", group['name'].encode('utf-8', 'replace'))
+    weechat.buffer_set(buffer, "nicklist", "1")
+    weechat.buffer_set(buffer, "nicklist_display_groups", "0")
+    for member in group['members']:
+        entry = weechat.nicklist_search_nick(buffer, "", member)
+        if len(entry) == 0:
+            logger.debug("Adding %s to group %s", member, groupId)
+            weechat.nicklist_add_nick(buffer, "", member, "", "", "", 1)
 
 
 def get_buffer(identifier, isGroup):
