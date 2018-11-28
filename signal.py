@@ -18,9 +18,11 @@ SCRIPT_BUFFER = 'signal'
 
 useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
+
 def get_logfile():
     weechat_dir = weechat.info_get("weechat_dir", "") or ".weechat"
     return os.path.join(weechat_dir, "logs", "signal.log")
+
 
 logging.basicConfig(filename=get_logfile())
 logger = logging.getLogger("weechat_script")
@@ -36,6 +38,8 @@ options = {}
 buffers = {}
 
 callbacks = {}
+contacts = {}
+groups = {}
 
 signald_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
@@ -223,10 +227,9 @@ def smsg_cmd_cb(data, buffer, args):
         get_buffer(args, False)
     else:
         number, message = args.split(" ", 1)
-        #getSignal().sendMessage(message, dbus.Array(signature="s"), number)
+        # getSignal().sendMessage(message, dbus.Array(signature="s"), number)
         show_msg(number, None, message, False)
     return weechat.WEECHAT_RC_OK
-
 
 
 if __name__ == "__main__":
