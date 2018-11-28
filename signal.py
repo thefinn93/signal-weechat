@@ -102,7 +102,9 @@ def receive(data, fd):
     payload = json.loads(data)
     signald_callbacks = {
         "version": handle_version,
-        "message": message_cb
+        "message": message_cb,
+        "contact_list": contact_list_cb,
+        "group_list": group_list_cb
     }
 
     if "id" in payload and payload["id"] in callbacks:
@@ -130,6 +132,8 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
 
 
 def subscribe(number):
+    send("list_contacts", username=number)
+    send("list_groups", username=number)
     send("subscribe", username=number, cb=subscribe_cb, cb_kwargs={"number": number})
 
 
@@ -150,21 +154,33 @@ def message_cb(payload):
     show_msg(payload['source'], group, message, True)
 
 
+def contact_list_cb(payload):
+    global contacts
+    contacts = payload
+
+
+def group_list_cb(payload):
+    global groups
+    groups = payload['groups']
+
+    for group in groups:
+        groupId = group['groupId']
+        buffer = get_buffer(groupId, True)
+        weechat.buffer_set(buffer, "title", group['name'].encode('utf-8', 'replace'))
+        weechat.buffer_set(buffer, "name", group['name'].encode('utf-8', 'replace'))
+        # if len(nicklist) > 0:
+        #     weechat.buffer_set(buffers[identifier], "nicklist", "1")
+        #     weechat.buffer_set(buffers[identifier], "nicklist_display_groups", "0")
+        #     for nick in nicklist:
+        #         logger.debug("Adding %s to group %s", nick, identifier)
+        #         weechat.nicklist_add_nick(buffers[identifier], "", nick, "", "", "", 1)
+
+
 def get_buffer(identifier, isGroup):
     if identifier not in buffers:
         cb = "buffer_input_group" if isGroup else "buffer_input"
-        name = identifier
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
-        nicklist = []
-        name = identifier  # TODO: get contact or group name
-        buffers[identifier] = weechat.buffer_new(name, cb, identifier, "", "")
-        weechat.buffer_set(buffers[identifier], "title", name)
-        if len(nicklist) > 0:
-            weechat.buffer_set(buffers[identifier], "nicklist", "1")
-            weechat.buffer_set(buffers[identifier], "nicklist_display_groups", "0")
-            for nick in nicklist:
-                logger.debug("Adding %s to group %s", nick, identifier)
-                weechat.nicklist_add_nick(buffers[identifier], "", nick, "", "", "", 1)
+        buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "", "")
     return buffers[identifier]
 
 
