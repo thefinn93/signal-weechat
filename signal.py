@@ -46,7 +46,8 @@ def prnt(text):
 
 
 def show_msg(number, group, message, incoming):
-    buf = get_buffer(group if len(group) > 0 else number, len(group) > 0)
+    identifier = number if group is None else group
+    buf = get_buffer(identifier, group is not None)
     name = "Me"
     if incoming:
         name = number
@@ -133,13 +134,16 @@ def subscribe_cb(payload, number):
 
 
 def message_cb(payload):
-    message = None
-    if payload.get('dataMessage') is not None:  # Sometimes "dataMessage" is set to null
-        message = payload['dataMessage'].get('message')
-    if message is not None:
-        show_msg(payload['source'], "", message, True)
-    else:
-        logger.info("Received a receipt from %s but receipt support is not yet implemented", payload.get('source'))
+    if payload.get('dataMessage') is None:  # Sometimes "dataMessage" is set to null
+        return
+
+    if payload['dataMessage'].get('message') is None:
+        return
+
+    message = payload['dataMessage']['message']
+    groupInfo = payload['dataMessage'].get('groupInfo')
+    group = groupInfo.get('groupId') if groupInfo is not None else None
+    show_msg(payload['source'], group, message, True)
 
 
 def get_buffer(identifier, isGroup):
@@ -148,21 +152,7 @@ def get_buffer(identifier, isGroup):
         name = identifier
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
         nicklist = []
-#        try:
-#            if isGroup:
-#                name = signal.getGroupName(group)
-#                for number in signal.getGroupMembers(group):
-#                    contact_name = signal.getContactName(number)
-#                    if len(contact_name) == 0:
-#                        contact_name = number
-#                    nicklist.append(contact_name)
-#            else:
-#                name = signal.getContactName(identifier)
-#                if len(name) == 0:
-#                    name = identifier
-#            logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
-#        except dbus.exceptions.DBusException:
-#            pass
+        name = identifier  # TODO: get contact or group name
         buffers[identifier] = weechat.buffer_new(name, cb, identifier, "", "")
         weechat.buffer_set(buffers[identifier], "title", name)
         if len(nicklist) > 0:
@@ -176,7 +166,13 @@ def get_buffer(identifier, isGroup):
 
 def buffer_input(number, buffer, message):
     send("send", username=options["number"], recipientNumber=number, messageBody=message)
-    show_msg(number, "", message, False)
+    show_msg(number, None, message, False)
+    return weechat.WEECHAT_RC_OK
+
+
+def buffer_input_group(groupId, buffer, message):
+    send("send", username=options["number"], recipientGroupId=groupId, messageBody=message)
+    show_msg(None, groupId, message, False)
     return weechat.WEECHAT_RC_OK
 
 
@@ -228,7 +224,7 @@ def smsg_cmd_cb(data, buffer, args):
     else:
         number, message = args.split(" ", 1)
         #getSignal().sendMessage(message, dbus.Array(signature="s"), number)
-        show_msg(number, "", message, False)
+        show_msg(number, None, message, False)
     return weechat.WEECHAT_RC_OK
 
 
