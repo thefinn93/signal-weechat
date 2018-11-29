@@ -96,8 +96,12 @@ def handle_version(payload):
 
 def receive(data, fd):
     global signald_socket
-    while not data.endswith("\n"):
-        data += signald_socket.recv(1)
+    try:
+        while not data.endswith("\n"):
+            data += signald_socket.recv(1)
+    except socket.error:
+        logger.exception("Failed to read from signald. Unload and reload this script to reconnect.")
+        return weechat.WEECHAT_RC_OK
     logger.debug("Got message from signald: %s", data)
     payload = json.loads(data)
     signald_callbacks = {
@@ -204,8 +208,11 @@ def buffer_input_group(groupId, buffer, message):
 
 def init_socket():
     global signald_socket
-    signald_socket.connect(options["socket"])
-    weechat.hook_fd(signald_socket.fileno(), 1, 0, 0, 'receive', '')
+    try:
+        signald_socket.connect(options["socket"])
+        weechat.hook_fd(signald_socket.fileno(), 1, 0, 0, 'receive', '')
+    except Exception:
+        logger.exception("Failed to connect to signald socket")
 
 
 def set_log_level():
