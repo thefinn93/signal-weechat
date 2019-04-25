@@ -1,6 +1,6 @@
 # Signal Weechat
 
-Use Signal (via [signald](https://git.callpipe.com/finn/signald)) in weechat.
+Use Signal (via [signald](https://gitlab.com/thefinn93/signald)) in weechat.
 
 ## Dependencies
 
@@ -27,15 +27,15 @@ Optional:
 
 ## Limitations
 
-There are numerous issues in the GitHub issues for this project, but the following limitations are imposed
-by signal-cli's dbus interface. Some of them have open issues on signal-cli:
+Some current limitations:
 
 * Can only register one number.
 * No read receipts
+* No attachment display (open to suggestions on how to implement)
 
 ## Support
 
-good luck. No but seriously, feel free to file an issue, just no promises of support.
+Feel free to file an issue
 
 
 ## Contributing
