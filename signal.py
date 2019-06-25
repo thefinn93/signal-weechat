@@ -118,6 +118,8 @@ def getSignal():
             prnt("  3) make sure that X11 is running and that the DISPLAY environment variable is set so that a DBus session daemon can be k.")
             prnt("")
             prnt("Also, confirm that signal-cli is running and connected to whichever bus you connect to (system or session).")
+        elif err.get_dbus_name() == "org.freedesktop.DBus.Error.ServiceUnknown":
+            prnt("Unable to connect to the signal-cli daemon. It should have been started automatically by this plugin. Is it running and connected to the same DBus bus as this plugin? (This plugin is connected to a %s bus.)"%(options['bus']))
 
 
 def send(data, buffer, args):
