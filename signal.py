@@ -111,7 +111,13 @@ def getSignal():
         return bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
     except dbus.exceptions.DBusException as err:
         if err.get_dbus_name() == "org.freedesktop.DBus.Error.NotSupported":
-            prnt("Unable to find a DBus daemon to connect to. Try connecting to a system DBus daemon running '/set plugins.var.python.signal.bus system' in WeeChat; confirming that a DBus session daemon is running and setting the DBUS_SESSION_BUS_ADDRESS environment variable; or making sure that X11 is running and that the DISPLAY environment variable is set. Also confirm that signal-cli is running and connected to whichever bus you connect to (system or session).")
+            prnt("Unable to find a DBus daemon to connect to. Try reloading the Signal plugin after taking one of the following steps:")
+            prnt("")
+            prnt("  1) configure the plugin to connect to a DBus system (not session) daemon running '/set plugins.var.python.signal.bus system' in WeeChat;")
+            prnt("  2) confirm that a DBus session daemon is running and set the DBUS_SESSION_BUS_ADDRESS environment variable to the daemon's configured address; or")
+            prnt("  3) make sure that X11 is running and that the DISPLAY environment variable is set so that a DBus session daemon can be k.")
+            prnt("")
+            prnt("Also, confirm that signal-cli is running and connected to whichever bus you connect to (system or session).")
 
 
 def send(data, buffer, args):
