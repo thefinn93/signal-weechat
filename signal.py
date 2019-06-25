@@ -77,9 +77,11 @@ def show_msg(number, group, message, incoming):
     buf = get_buffer(group if len(group) > 0 else number, len(group) > 0)
     name = "Me"
     if incoming:
-        name = getSignal().getContactName(number).encode("utf-8", "ignore")
-        if len(name) == 0:
-            name = number
+        signal = getSignal()
+        if signal is not None:
+            name = signal.getContactName(number)
+            if len(name) == 0:
+                name = number
     weechat.prnt(buf, "%s\t%s" % (name, message.encode("utf-8", "ignore")))
 
 
@@ -119,8 +121,10 @@ def send(data, buffer, args):
         get_buffer(args, False)
     else:
         number, message = args.split(" ", 1)
-        getSignal().sendMessage(message, dbus.Array(signature="s"), number)
-        show_msg(number, "", message, False)
+        signal = getSignal()
+        if signal is not None:
+            signal.sendMessage(message, dbus.Array(signature="s"), number)
+            show_msg(number, "", message, False)
     return weechat.WEECHAT_RC_OK
 
 
@@ -179,13 +183,15 @@ def contact_subcommand(args):
         return None
     command = args[0]
     if command in ["update", "add"]:
-        if len(args) > 2:
-            number = args[1]
-            name = " ".join(args[2:])
-            getSignal().setContactName(number, name)
-            prnt("Contact %s (%s) created/updated" % (number, name))
-        else:
-            prnt("not enough arguments! try /help signal")
+        signal = getSignal()
+        if signal is not None:
+            if len(args) > 2:
+                number = args[1]
+                name = " ".join(args[2:])
+                signal.setContactName(number, name)
+                prnt("Contact %s (%s) created/updated" % (number, name))
+            else:
+                prnt("not enough arguments! try /help signal")
     else:
         prnt("not enough arguments! try /help signal")
 
@@ -246,43 +252,48 @@ def get_buffer(identifier, isGroup):
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
         nicklist = []
         signal = getSignal()
-        try:
-            if isGroup:
-                group = [dbus.Byte(x) for x in base64.b64decode(identifier)].encode("utf-8")
-                name = signal.getGroupName(group).encode("utf-8")
-                for number in signal.getGroupMembers(group):
-                    contact_name = signal.getContactName(number).encode("utf-8")
-                    if len(contact_name) == 0:
-                        contact_name = number
-                    nicklist.append(contact_name)
-            else:
-                name = signal.getContactName(identifier).encode("utf-8")
-                if len(name) == 0:
-                    name = identifier
-            logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
-        except dbus.exceptions.DBusException:
-            pass
-        buffers[identifier] = weechat.buffer_new(name, cb, identifier, "", "")
-        weechat.buffer_set(buffers[identifier], "title", name)
-        if len(nicklist) > 0:
-            weechat.buffer_set(buffers[identifier], "nicklist", "1")
-            weechat.buffer_set(buffers[identifier], "nicklist_display_groups", "0")
-            for nick in nicklist:
-                logger.debug("Adding %s to group %s", nick, identifier)
-                weechat.nicklist_add_nick(buffers[identifier], "", nick, "", "", "", 1)
+        if signal is not None:
+            try:
+                if isGroup:
+                    group = [dbus.Byte(x) for x in base64.b64decode(identifier)].encode("utf-8")
+                    name = signal.getGroupName(group).encode("utf-8")
+                    for number in signal.getGroupMembers(group):
+                        contact_name = signal.getContactName(number).encode("utf-8")
+                        if len(contact_name) == 0:
+                            contact_name = number
+                        nicklist.append(contact_name)
+                else:
+                    name = signal.getContactName(identifier).encode("utf-8")
+                    if len(name) == 0:
+                        name = identifier
+                logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
+            except dbus.exceptions.DBusException:
+                pass
+            buffers[identifier] = weechat.buffer_new(name, cb, identifier, "", "")
+            weechat.buffer_set(buffers[identifier], "title", name)
+            if len(nicklist) > 0:
+                weechat.buffer_set(buffers[identifier], "nicklist", "1")
+                weechat.buffer_set(buffers[identifier], "nicklist_display_groups", "0")
+                for nick in nicklist:
+                    logger.debug("Adding %s to group %s", nick, identifier)
+                    weechat.nicklist_add_nick(buffers[identifier], "", nick, "", "", "", 1)
     return buffers[identifier]
 
 
 def buffer_input(number, buffer, message):
-    getSignal().sendMessage(message, dbus.Array(signature="s"), number)
-    show_msg(number, "", message, False)
-    return weechat.WEECHAT_RC_OK
+    signal = getSignal()
+    if signal is not None:
+        signal.sendMessage(message, dbus.Array(signature="s"), number)
+        show_msg(number, "", message, False)
+        return weechat.WEECHAT_RC_OK
 
 
 def buffer_input_group(group, buffer, message):
     groupId = [dbus.Byte(x) for x in base64.b64decode(group)]
-    getSignal().sendGroupMessage(message, dbus.Array(signature="s"), groupId)
-    show_msg("", group, message, False)
+    signal = getSignal()
+    if signal is not None:
+        getSignal().sendGroupMessage(message, dbus.Array(signature="s"), groupId)
+        show_msg("", group, message, False)
     return weechat.WEECHAT_RC_OK
 
 
