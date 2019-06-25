@@ -77,10 +77,10 @@ def show_msg(number, group, message, incoming):
     buf = get_buffer(group if len(group) > 0 else number, len(group) > 0)
     name = "Me"
     if incoming:
-        name = getSignal().getContactName(number)
+        name = getSignal().getContactName(number).encode("utf-8", "ignore")
         if len(name) == 0:
             name = number
-    weechat.prnt(buf, "%s\t%s" % (name, message))
+    weechat.prnt(buf, "%s\t%s" % (name, message.encode("utf-8", "ignore")))
 
 
 def config_changed(data, option, value):
@@ -232,6 +232,7 @@ def do_link():
 
 
 def get_buffer(identifier, isGroup):
+    identifier = identifier.encode("utf-8")
     if identifier not in buffers:
         cb = "buffer_input_group" if isGroup else "buffer_input"
         name = identifier
@@ -240,15 +241,15 @@ def get_buffer(identifier, isGroup):
         signal = getSignal()
         try:
             if isGroup:
-                group = [dbus.Byte(x) for x in base64.b64decode(identifier)]
-                name = signal.getGroupName(group)
+                group = [dbus.Byte(x) for x in base64.b64decode(identifier)].encode("utf-8")
+                name = signal.getGroupName(group).encode("utf-8")
                 for number in signal.getGroupMembers(group):
-                    contact_name = signal.getContactName(number)
+                    contact_name = signal.getContactName(number).encode("utf-8")
                     if len(contact_name) == 0:
                         contact_name = number
                     nicklist.append(contact_name)
             else:
-                name = signal.getContactName(identifier)
+                name = signal.getContactName(identifier).encode("utf-8")
                 if len(name) == 0:
                     name = identifier
             logger.debug("%s %s is known as %s", "group" if isGroup else "contact", identifier, name)
