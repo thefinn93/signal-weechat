@@ -108,10 +108,10 @@ def getSignal():
             bus = dbus.SessionBus()
         else:
             bus = dbus.SystemBus()
+        return bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
     except dbus.exceptions.DBusException as err:
-        if err.get_dbus_message() == "org.freedesktop.DBus.Error.NotSupported: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11":
+        if err.get_dbus_name() == "org.freedesktop.DBus.Error.NotSupported":
             prnt("Unable to find a DBus daemon to connect to. Try connecting to a system DBus daemon running '/set plugins.var.python.signal.bus system' in WeeChat; confirming that a DBus session daemon is running and setting the DBUS_SESSION_BUS_ADDRESS environment variable; or making sure that X11 is running and that the DISPLAY environment variable is set. Also confirm that signal-cli is running and connected to whichever bus you connect to (system or session).")
-    return bus.get_object('org.asamk.Signal', '/org/asamk/Signal')
 
 
 def send(data, buffer, args):
