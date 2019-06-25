@@ -114,7 +114,7 @@ def getSignal():
 
 def send(data, buffer, args):
     if len(args) == 0:
-        prnt("Not enough arguments! Try /help smg")
+        prnt("Not enough arguments! Try /help smsg")
     elif " " not in args:
         get_buffer(args, False)
     else:
