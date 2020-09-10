@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import weechat
 import logging
 import socket
@@ -20,8 +20,7 @@ useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
 
 def get_logfile():
-    weechat_dir = weechat.info_get("weechat_dir", "") or ".weechat"
-    return os.path.join(weechat_dir, "logs", "signal.log")
+    return os.path.join("logs", "signal.log")
 
 
 logging.basicConfig(filename=get_logfile())
@@ -99,13 +98,19 @@ def handle_version(payload):
 def receive(data, fd):
     global signald_socket
     try:
+        # awesome. since data is a string, but .recv() gives us bytes (that we
+        # don't necessarily want to decode, since they may be broken in the
+        # middle of a unicode character or something), we have to shoehorn
+        # bytes directly to a string. we use latin1 per:
+        # https://stackoverflow.com/a/42795285
+        # so we can roundtrip every byte
         while not data.endswith("\n"):
-            data += signald_socket.recv(1)
+            data += signald_socket.recv(1).decode('latin1')
     except socket.error:
         logger.exception("Failed to read from signald. Unload and reload this script to reconnect.")
         return weechat.WEECHAT_RC_OK
     logger.debug("Got message from signald: %s", data)
-    payload = json.loads(data)
+    payload = json.loads(data.encode('latin1'))
     signald_callbacks = {
         "version": handle_version,
         "message": message_cb,
@@ -134,7 +139,7 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
         callbacks[request_id] = {"func": cb, "args": cb_args, "kwargs": cb_kwargs}
     msg = json.dumps(payload)
     logger.debug("Sending to signald: %s", msg)
-    signald_socket.sendall(msg + "\n")
+    signald_socket.sendall((msg + "\n").encode('utf-8'))
 
 
 def subscribe(number):
@@ -148,27 +153,26 @@ def subscribe_cb(payload, number):
 
 
 def message_cb(payload):
-    if payload.get('dataMessage') is None:  # Sometimes "dataMessage" is set to null
-        return
-
-    if payload['dataMessage'].get('message') is None:
-        return
-
-    message = payload['dataMessage']['message']
-    groupInfo = payload['dataMessage'].get('groupInfo')
-    group = groupInfo.get('groupId') if groupInfo is not None else None
-    show_msg(payload['source'], group, message, True)
+    if payload.get('dataMessage') is not None:
+        message = payload['dataMessage']['body']
+        groupInfo = payload['dataMessage'].get('groupInfo')
+        group = groupInfo.get('groupId') if groupInfo is not None else None
+        show_msg(payload['source']['number'], group, message, True)
+    elif payload.get('syncMessage') is not None:
+        message = payload['syncMessage']['sent']['message']['body']
+        dest = payload['syncMessage']['sent']['destination']['number']
+        show_msg(dest, None, message, False)
 
 
 def contact_list_cb(payload):
     global contacts
 
     for contact in payload:
-        contacts[contact['number']] = contact
+        contacts[contact['address']['number']] = contact
         logger.debug("Checking for buffers with contact %s", contact)
         if contact['number'] in buffers:
-            b = buffers[contacts['number']]
-            name = contact.get('name', contact['number'])
+            b = buffers[contacts['address']['number']]
+            name = contact.get('name', contact['address']['number'])
             set_buffer_name(b, name)
 
 
@@ -213,7 +217,7 @@ def get_buffer(identifier, isGroup):
 
 
 def buffer_input(number, buffer, message):
-    send("send", username=options["number"], recipientNumber=number, messageBody=message)
+    send("send", username=options["number"], recipientAddress={"number": number}, messageBody=message)
     show_msg(number, None, message, False)
     return weechat.WEECHAT_RC_OK
 
@@ -228,6 +232,9 @@ def init_socket():
     global signald_socket
     try:
         signald_socket.connect(options["socket"])
+        # weechat really wants the last argument to be a string, but we really
+        # want it to be bytes. so we end up having to do a bunch of gnarly
+        # decoding and stuff in receive(). c'est la vie.
         weechat.hook_fd(signald_socket.fileno(), 1, 0, 0, 'receive', '')
     except Exception:
         logger.exception("Failed to connect to signald socket")
