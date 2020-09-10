@@ -153,27 +153,26 @@ def subscribe_cb(payload, number):
 
 
 def message_cb(payload):
-    if payload.get('dataMessage') is None:  # Sometimes "dataMessage" is set to null
-        return
-
-    if payload['dataMessage'].get('message') is None:
-        return
-
-    message = payload['dataMessage']['message']
-    groupInfo = payload['dataMessage'].get('groupInfo')
-    group = groupInfo.get('groupId') if groupInfo is not None else None
-    show_msg(payload['source'], group, message, True)
+    if payload.get('dataMessage') is not None:
+        message = payload['dataMessage']['body']
+        groupInfo = payload['dataMessage'].get('groupInfo')
+        group = groupInfo.get('groupId') if groupInfo is not None else None
+        show_msg(payload['source']['number'], group, message, True)
+    elif payload.get('syncMessage') is not None:
+        message = payload['syncMessage']['sent']['message']['body']
+        dest = payload['syncMessage']['sent']['destination']['number']
+        show_msg(dest, None, message, False)
 
 
 def contact_list_cb(payload):
     global contacts
 
     for contact in payload:
-        contacts[contact['number']] = contact
+        contacts[contact['address']['number']] = contact
         logger.debug("Checking for buffers with contact %s", contact)
         if contact['number'] in buffers:
-            b = buffers[contacts['number']]
-            name = contact.get('name', contact['number'])
+            b = buffers[contacts['address']['number']]
+            name = contact.get('name', contact['address']['number'])
             set_buffer_name(b, name)
 
 
@@ -218,7 +217,7 @@ def get_buffer(identifier, isGroup):
 
 
 def buffer_input(number, buffer, message):
-    send("send", username=options["number"], recipientNumber=number, messageBody=message)
+    send("send", username=options["number"], recipientAddress={"number": number}, messageBody=message)
     show_msg(number, None, message, False)
     return weechat.WEECHAT_RC_OK
 
