@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import weechat
 import logging
 import socket
@@ -98,13 +98,19 @@ def handle_version(payload):
 def receive(data, fd):
     global signald_socket
     try:
+        # awesome. since data is a string, but .recv() gives us bytes (that we
+        # don't necessarily want to decode, since they may be broken in the
+        # middle of a unicode character or something), we have to shoehorn
+        # bytes directly to a string. we use latin1 per:
+        # https://stackoverflow.com/a/42795285
+        # so we can roundtrip every byte
         while not data.endswith("\n"):
-            data += signald_socket.recv(1)
+            data += signald_socket.recv(1).decode('latin1')
     except socket.error:
         logger.exception("Failed to read from signald. Unload and reload this script to reconnect.")
         return weechat.WEECHAT_RC_OK
     logger.debug("Got message from signald: %s", data)
-    payload = json.loads(data)
+    payload = json.loads(data.encode('latin1'))
     signald_callbacks = {
         "version": handle_version,
         "message": message_cb,
@@ -133,7 +139,7 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
         callbacks[request_id] = {"func": cb, "args": cb_args, "kwargs": cb_kwargs}
     msg = json.dumps(payload)
     logger.debug("Sending to signald: %s", msg)
-    signald_socket.sendall(msg + "\n")
+    signald_socket.sendall((msg + "\n").encode('utf-8'))
 
 
 def subscribe(number):
@@ -227,6 +233,9 @@ def init_socket():
     global signald_socket
     try:
         signald_socket.connect(options["socket"])
+        # weechat really wants the last argument to be a string, but we really
+        # want it to be bytes. so we end up having to do a bunch of gnarly
+        # decoding and stuff in receive(). c'est la vie.
         weechat.hook_fd(signald_socket.fileno(), 1, 0, 0, 'receive', '')
     except Exception:
         logger.exception("Failed to connect to signald socket")
