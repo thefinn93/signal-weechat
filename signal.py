@@ -123,7 +123,8 @@ def receive(data, fd):
         "version": handle_version,
         "message": message_cb,
         "contact_list": contact_list_cb,
-        "group_list": group_list_cb
+        "group_list": group_list_cb,
+        "send_results": send_results_cb,
     }
 
     if "id" in payload and payload["id"] in callbacks:
@@ -170,6 +171,10 @@ def message_cb(payload):
         message = payload['syncMessage']['sent']['message']['body']
         dest = payload['syncMessage']['sent']['destination']['number']
         show_msg(dest, None, message, False)
+
+
+def send_results_cb(payload):
+    pass
 
 
 def contact_list_cb(payload):
