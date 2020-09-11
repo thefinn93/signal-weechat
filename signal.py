@@ -155,7 +155,7 @@ def subscribe_cb(payload, number):
 def message_cb(payload):
     if payload.get('dataMessage') is not None:
         message = payload['dataMessage']['body']
-        groupInfo = payload['dataMessage'].get('groupInfo')
+        groupInfo = payload['dataMessage'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
         show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
