@@ -54,6 +54,14 @@ def show_msg(number, group, message, incoming):
     if incoming:
         name = contact_name(number)
     weechat.prnt(buf, "%s\t%s" % (name, message))
+    if incoming:
+        if group is None:
+            # 1:1 messages are private messages
+            hotness = weechat.WEECHAT_HOTLIST_PRIVATE
+        else:
+            # group messages are treated as 'messages'
+            hotness = weechat.WEECHAT_HOTLIST_MESSAGE
+        weechat.buffer_set(buf, "hotlist", hotness)
 
 
 def contact_name(number):
