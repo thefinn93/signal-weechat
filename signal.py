@@ -170,15 +170,14 @@ def contact_list_cb(payload):
     for contact in payload:
         contacts[contact['address']['number']] = contact
         logger.debug("Checking for buffers with contact %s", contact)
-        if contact['number'] in buffers:
+        if contact['address']['number'] in buffers:
             b = buffers[contacts['address']['number']]
-            name = contact.get('name', contact['address']['number'])
+            name = contact.get('name', contact['address']['number']).decode('latin1')
             set_buffer_name(b, name)
 
 
 def set_buffer_name(b, name):
     logger.info("Setting buffer name to %s", name)
-    name = name.encode('utf-8', 'replace')
     weechat.buffer_set(b, "title", name)
     weechat.buffer_set(b, "name", name)
     weechat.buffer_set(b, "shortname", name)
@@ -198,7 +197,7 @@ def update_group(group):
     weechat.buffer_set(buffer, "nicklist", "1")
     weechat.buffer_set(buffer, "nicklist_display_groups", "0")
     for member in group['members']:
-        member_name = contact_name(member)
+        member_name = contact_name(member['number'])
         entry = weechat.nicklist_search_nick(buffer, "", member_name)
         if len(entry) == 0:
             logger.debug("Adding %s to group %s", member_name, groupId)
@@ -211,7 +210,7 @@ def get_buffer(identifier, isGroup):
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
         buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "", "")
         if not isGroup and identifier in contacts:
-            name = contacts[identifier].get('name', contacts[identifier]['number'])
+            name = contacts[identifier].get('name', identifier)
             set_buffer_name(buffers[identifier], name)
     return buffers[identifier]
 
