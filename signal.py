@@ -227,11 +227,16 @@ def update_group(group):
             weechat.nicklist_add_nick(buffer, "", member_name, "", "", "", 1)
 
 
+def buffer_close_cb(identifier, buffer):
+    del buffers[identifier]
+    return weechat.WEECHAT_RC_OK
+
+
 def get_buffer(identifier, isGroup):
     if identifier not in buffers:
         cb = "buffer_input_group" if isGroup else "buffer_input"
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
-        buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "", "")
+        buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "buffer_close_cb", identifier)
         if not isGroup and identifier in contacts:
             name = contacts[identifier].get('name', identifier)
             set_buffer_name(buffers[identifier], name)
