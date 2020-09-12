@@ -127,14 +127,17 @@ def receive(data, fd):
         "send_results": send_results_cb,
     }
 
-    if "id" in payload and payload["id"] in callbacks:
-        callback = callbacks[payload["id"]]
-        callback["func"](payload, *callback["args"], **callback["kwargs"])
-    elif payload.get('type') in signald_callbacks:
-        signald_callbacks[payload.get('type')](payload.get('data'))
-    else:
-        prnt("Got unhandled {} message from signald, see debug log for more info".format(payload.get('type')))
-        logger.warn("Got unhandled message of type %s from signald", payload.get('type'))
+    try:
+        if "id" in payload and payload["id"] in callbacks:
+            callback = callbacks[payload["id"]]
+            callback["func"](payload, *callback["args"], **callback["kwargs"])
+        elif payload.get('type') in signald_callbacks:
+            signald_callbacks[payload.get('type')](payload.get('data'))
+        else:
+            prnt("Got unhandled {} message from signald, see debug log for more info".format(payload.get('type')))
+            logger.warn("Got unhandled message of type %s from signald", payload.get('type'))
+    except:
+        logger.exception("exception while handling payload %s", payload)
     return weechat.WEECHAT_RC_OK
 
 
