@@ -169,8 +169,10 @@ def message_cb(payload):
         show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
         message = payload['syncMessage']['sent']['message']['body']
-        dest = payload['syncMessage']['sent']['destination']['number']
-        show_msg(dest, None, message, False)
+        groupInfo = payload['syncMessage']['sent']['message'].get('group')
+        group = groupInfo.get('groupId') if groupInfo is not None else None
+        dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
+        show_msg(dest, group, message, False)
 
 
 def send_results_cb(payload):
