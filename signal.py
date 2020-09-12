@@ -20,7 +20,8 @@ useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
 
 def get_logfile():
-    return os.path.join("logs", "signal.log")
+    weechat_dir = weechat.info_get("weechat_dir", "") or "~/.weechat"
+    return os.path.join(os.path.expanduser(weechat_dir), "logs", "signal.log")
 
 
 logging.basicConfig(filename=get_logfile())
