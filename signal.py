@@ -20,7 +20,8 @@ useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
 
 def get_logfile():
-    return os.path.join("logs", "signal.log")
+    weechat_dir = weechat.info_get("weechat_dir", "") or "~/.weechat"
+    return os.path.join(os.path.expanduser(weechat_dir), "logs", "signal.log")
 
 
 logging.basicConfig(filename=get_logfile())
@@ -38,6 +39,7 @@ buffers = {}
 
 callbacks = {}
 contacts = {}
+groups = {}
 
 signald_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
@@ -54,6 +56,14 @@ def show_msg(number, group, message, incoming):
     if incoming:
         name = contact_name(number)
     weechat.prnt(buf, "%s\t%s" % (name, message))
+    if incoming:
+        if group is None:
+            # 1:1 messages are private messages
+            hotness = weechat.WEECHAT_HOTLIST_PRIVATE
+        else:
+            # group messages are treated as 'messages'
+            hotness = weechat.WEECHAT_HOTLIST_MESSAGE
+        weechat.buffer_set(buf, "hotlist", hotness)
 
 
 def contact_name(number):
@@ -115,17 +125,21 @@ def receive(data, fd):
         "version": handle_version,
         "message": message_cb,
         "contact_list": contact_list_cb,
-        "group_list": group_list_cb
+        "group_list": group_list_cb,
+        "send_results": send_results_cb,
     }
 
-    if "id" in payload and payload["id"] in callbacks:
-        callback = callbacks[payload["id"]]
-        callback["func"](payload, *callback["args"], **callback["kwargs"])
-    elif payload.get('type') in signald_callbacks:
-        signald_callbacks[payload.get('type')](payload.get('data'))
-    else:
-        prnt("Got unhandled {} message from signald, see debug log for more info".format(payload.get('type')))
-        logger.warn("Got unhandled message of type %s from signald", payload.get('type'))
+    try:
+        if "id" in payload and payload["id"] in callbacks:
+            callback = callbacks[payload["id"]]
+            callback["func"](payload, *callback["args"], **callback["kwargs"])
+        elif payload.get('type') in signald_callbacks:
+            signald_callbacks[payload.get('type')](payload.get('data'))
+        else:
+            prnt("Got unhandled {} message from signald, see debug log for more info".format(payload.get('type')))
+            logger.warn("Got unhandled message of type %s from signald", payload.get('type'))
+    except:
+        logger.exception("exception while handling payload %s", payload)
     return weechat.WEECHAT_RC_OK
 
 
@@ -159,9 +173,19 @@ def message_cb(payload):
         group = groupInfo.get('groupId') if groupInfo is not None else None
         show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
+        # some syncMessages are to synchronize read receipts; we ignore these
+        if payload['syncMessage'].get('readMessages') is not None:
+            return
+
         message = payload['syncMessage']['sent']['message']['body']
-        dest = payload['syncMessage']['sent']['destination']['number']
-        show_msg(dest, None, message, False)
+        groupInfo = payload['syncMessage']['sent']['message'].get('group')
+        group = groupInfo.get('groupId') if groupInfo is not None else None
+        dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
+        show_msg(dest, group, message, False)
+
+
+def send_results_cb(payload):
+    pass
 
 
 def contact_list_cb(payload):
@@ -184,14 +208,14 @@ def set_buffer_name(b, name):
 
 
 def group_list_cb(payload):
-    groups = payload['groups']
+    global groups
+    for group in payload['groups']:
+        groups[group['groupId']] = group
 
-    for group in groups:
-        update_group(group)
 
-
-def update_group(group):
-    groupId = group['groupId']
+def setup_group_buffer(groupId):
+    global groups
+    group = groups[groupId]
     buffer = get_buffer(groupId, True)
     set_buffer_name(buffer, group['name'])
     weechat.buffer_set(buffer, "nicklist", "1")
@@ -204,14 +228,21 @@ def update_group(group):
             weechat.nicklist_add_nick(buffer, "", member_name, "", "", "", 1)
 
 
+def buffer_close_cb(identifier, buffer):
+    del buffers[identifier]
+    return weechat.WEECHAT_RC_OK
+
+
 def get_buffer(identifier, isGroup):
     if identifier not in buffers:
         cb = "buffer_input_group" if isGroup else "buffer_input"
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
-        buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "", "")
+        buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "buffer_close_cb", identifier)
         if not isGroup and identifier in contacts:
             name = contacts[identifier].get('name', identifier)
             set_buffer_name(buffers[identifier], name)
+        if isGroup:
+            setup_group_buffer(identifier)
     return buffers[identifier]
 
 
