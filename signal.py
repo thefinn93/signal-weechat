@@ -39,6 +39,7 @@ buffers = {}
 
 callbacks = {}
 contacts = {}
+groups = {}
 
 signald_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
@@ -207,14 +208,14 @@ def set_buffer_name(b, name):
 
 
 def group_list_cb(payload):
-    groups = payload['groups']
+    global groups
+    for group in payload['groups']:
+        groups[group['groupId']] = group
 
-    for group in groups:
-        update_group(group)
 
-
-def update_group(group):
-    groupId = group['groupId']
+def setup_group_buffer(groupId):
+    global groups
+    group = groups[groupId]
     buffer = get_buffer(groupId, True)
     set_buffer_name(buffer, group['name'])
     weechat.buffer_set(buffer, "nicklist", "1")
@@ -240,6 +241,8 @@ def get_buffer(identifier, isGroup):
         if not isGroup and identifier in contacts:
             name = contacts[identifier].get('name', identifier)
             set_buffer_name(buffers[identifier], name)
+        if isGroup:
+            setup_group_buffer(identifier)
     return buffers[identifier]
 
 
