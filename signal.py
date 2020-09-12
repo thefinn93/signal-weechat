@@ -171,6 +171,10 @@ def message_cb(payload):
         group = groupInfo.get('groupId') if groupInfo is not None else None
         show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
+        # some syncMessages are to synchronize read receipts; we ignore these
+        if payload['syncMessage'].get('readMessages') is not None:
+            return
+
         message = payload['syncMessage']['sent']['message']['body']
         groupInfo = payload['syncMessage']['sent']['message'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
