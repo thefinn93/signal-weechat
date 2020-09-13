@@ -67,6 +67,8 @@ def show_msg(number, group, message, incoming):
 
 
 def contact_name(number):
+    if number == options["number"]:
+        return 'Me'
     if number in contacts:
         return contacts[number].get('name', number)
     else:
@@ -170,6 +172,10 @@ def render_message(message):
     sticker = message.get('sticker')
     if sticker is not None:
         return "<sent sticker>"
+    reaction = message.get('reaction')
+    if reaction is not None:
+        name = contact_name(reaction['targetAuthor']['number'])
+        return "<reacted with {} to a message from {}>".format(reaction["emoji"], name)
     attachment_msg = ""
     attachments = message.get('attachments')
     if attachments is not None:
