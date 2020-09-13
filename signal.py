@@ -170,7 +170,12 @@ def render_message(message):
     sticker = message.get('sticker')
     if sticker is not None:
         return "<sent sticker>"
-    return message['body']
+    attachment_msg = ""
+    attachments = message.get('attachments')
+    if attachments is not None:
+        types = [attach['contentType'] for attach in attachments]
+        attachment_msg = "<sent {}> ".format(', '.join(types))
+    return attachment_msg + message['body']
 
 
 def message_cb(payload):
