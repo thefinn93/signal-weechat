@@ -166,9 +166,16 @@ def subscribe_cb(payload, number):
     prnt("Successfully subscribed to {}".format(number))
 
 
+def render_message(message):
+    sticker = message.get('sticker')
+    if sticker is not None:
+        return "<sent sticker>"
+    return message['body']
+
+
 def message_cb(payload):
     if payload.get('dataMessage') is not None:
-        message = payload['dataMessage']['body']
+        message = render_message(payload['dataMessage'])
         groupInfo = payload['dataMessage'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
         show_msg(payload['source']['number'], group, message, True)
@@ -177,7 +184,7 @@ def message_cb(payload):
         if payload['syncMessage'].get('readMessages') is not None:
             return
 
-        message = payload['syncMessage']['sent']['message']['body']
+        message = render_message(payload['syncMessage']['sent']['message'])
         groupInfo = payload['syncMessage']['sent']['message'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
         dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
