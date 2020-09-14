@@ -243,6 +243,7 @@ def get_buffer(identifier, isGroup):
             set_buffer_name(buffers[identifier], name)
         if isGroup:
             setup_group_buffer(identifier)
+        weechat.hook_signal_send("logger_backlog", weechat.WEECHAT_HOOK_SIGNAL_POINTER, buffers[identifier])
     return buffers[identifier]
 
 
