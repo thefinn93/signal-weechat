@@ -317,23 +317,38 @@ def shutdown():
 
 
 def smsg_cmd_cb(data, buffer, args):
+    identifier = None
     if len(args) == 0:
-        prnt("Not enough arguments! Try /help smsg")
+        prnt("Usage: /smsg [number | group]")
     else:
-        try:
-            if args[0] == "+" and args in contacts:
-                identifier = args
-                group = None
-            else:
-                for group in groups:
-                    if groups[group]['name'] == args:
-                        identifier = group
+        if args in contacts:
+            identifier = args
+            group = None
+        else:
+            for group in groups:
+                if groups[group]['name'] == args:
+                    identifier = group
+        if identifier:
             buf = get_buffer(identifier, group is not None)
-        except UnboundLocalError:
-            prnt('There is no such contact or group. Try again.')
 
     return weechat.WEECHAT_RC_OK
 
+
+def signal_cmd_cb(data, buffer, args):
+    if args == 'list groups':
+        prnt('List of all available Signal groups:')
+        for group in groups:
+            prnt(groups[group]['name'])
+        prnt('')
+    elif args == 'list contacts':
+        prnt('List of all available contacts:')
+        for number in contacts:
+            if contact_name(number) != options['number']:
+                prnt('{name}, {number}\n'.format(name=contact_name(number), number=number))
+        prnt('')
+    else: pass
+
+    return weechat.WEECHAT_RC_OK
 
 if __name__ == "__main__":
     logger.debug("Preparing to register")
@@ -342,13 +357,18 @@ if __name__ == "__main__":
             weechat.hook_config('plugins.var.python.%s.*' % SCRIPT_NAME, 'config_changed', '')
             init_config()
             set_log_level()
+            smsg_help = [
+                "number: the full e164 number (including country code) for the contact",
+            ]
             signal_help = [
-                "number: the full e164 number (including country code) to send to",
-                "message: the text of the message to send"
+                "contacts: list all contact names and numbers",
+                "groups: list all group names",
             ]
             logger.debug("Registering command...")
-            weechat.hook_command("smsg", "Send a message to someone on signal", "[number] [message]",
-                                 "\n".join(signal_help), "%(message)", "smsg_cmd_cb", "")
+            weechat.hook_command("smsg", "Open a buffer to message someone (or some group) on signal", "[<number or group name>]",
+                                 "\n".join(smsg_help), "%(number)", "smsg_cmd_cb", "")
+            weechat.hook_command("signal", "List contacts or group names", "list [contacts | groups]",
+                                 "\n".join(signal_help), "%(list)", "signal_cmd_cb", "")
             init_socket()
     except Exception:
         logger.exception("Failed to initialize plugin.")
