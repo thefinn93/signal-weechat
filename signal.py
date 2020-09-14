@@ -67,6 +67,8 @@ def show_msg(number, group, message, incoming):
 
 
 def contact_name(number):
+    if number == options["number"]:
+        return 'Me'
     if number in contacts:
         return contacts[number].get('name', number)
     else:
@@ -139,7 +141,7 @@ def receive(data, fd):
             prnt("Got unhandled {} message from signald, see debug log for more info".format(payload.get('type')))
             logger.warn("Got unhandled message of type %s from signald", payload.get('type'))
     except:
-        logger.exception("exception while handling payload %s", payload)
+        logger.exception("exception while handling payload %s", json.dumps(payload, indent="    "))
     return weechat.WEECHAT_RC_OK
 
 
@@ -166,9 +168,25 @@ def subscribe_cb(payload, number):
     prnt("Successfully subscribed to {}".format(number))
 
 
+def render_message(message):
+    sticker = message.get('sticker')
+    if sticker is not None:
+        return "<sent sticker>"
+    reaction = message.get('reaction')
+    if reaction is not None:
+        name = contact_name(reaction['targetAuthor']['number'])
+        return "<reacted with {} to a message from {}>".format(reaction["emoji"], name)
+    attachment_msg = ""
+    attachments = message.get('attachments')
+    if attachments is not None:
+        types = [attach['contentType'] for attach in attachments]
+        attachment_msg = "<sent {}> ".format(', '.join(types))
+    return attachment_msg + message['body']
+
+
 def message_cb(payload):
     if payload.get('dataMessage') is not None:
-        message = payload['dataMessage']['body']
+        message = render_message(payload['dataMessage'])
         groupInfo = payload['dataMessage'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
         show_msg(payload['source']['number'], group, message, True)
@@ -177,7 +195,7 @@ def message_cb(payload):
         if payload['syncMessage'].get('readMessages') is not None:
             return
 
-        message = payload['syncMessage']['sent']['message']['body']
+        message = render_message(payload['syncMessage']['sent']['message'])
         groupInfo = payload['syncMessage']['sent']['message'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
         dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
