@@ -91,9 +91,7 @@ def welcome(version):
         if len(options['number']) > 0:
             subscribe(options['number'])
         else:
-            prnt("To begin, you must register or link to an existing device:")
-            prnt("To register a new number: {}/signal register +12024561414".format(weechat.color("bold")))
-            prnt("To link to an existing device: {}/signal link".format(weechat.color("bold")))
+            prnt("To begin, you must register or link to an existing device in signald.")
     else:
         prnt("You don't have signald running! See https://gitlab.com/thefinn93/signald")
     prnt("")
@@ -318,11 +316,6 @@ def shutdown():
     return weechat.WEECHAT_RC_OK
 
 
-def signal_cmd_cb(data, buffer, args):
-    prnt("not yet implemented")
-    return weechat.WEECHAT_RC_OK
-
-
 def smsg_cmd_cb(data, buffer, args):
     if len(args) == 0:
         prnt("Not enough arguments! Try /help smg")
@@ -349,8 +342,6 @@ if __name__ == "__main__":
             logger.debug("Registering command...")
             weechat.hook_command("smsg", "Send a message to someone on signal", "[number] [message]",
                                  "\n".join(signal_help), "%(message)", "smsg_cmd_cb", "")
-            weechat.hook_command("signal", "Interact with Signal", "[action]",
-                                 "help coming soon...", "%(message)", "signal_cmd_cb", "")
             init_socket()
     except Exception:
         logger.exception("Failed to initialize plugin.")
