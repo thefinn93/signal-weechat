@@ -31,12 +31,14 @@ Some current limitations:
 
 * Can only register one number.
 * No read receipts
-* No attachment display (open to suggestions on how to implement)
+
+## TODO
+
+* Handle syncMessage read receipts
 
 ## Support
 
 Feel free to file an issue
-
 
 ## Contributing
 
