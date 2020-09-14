@@ -318,13 +318,20 @@ def shutdown():
 
 def smsg_cmd_cb(data, buffer, args):
     if len(args) == 0:
-        prnt("Not enough arguments! Try /help smg")
-    elif " " not in args:
-        get_buffer(args, False)
+        prnt("Not enough arguments! Try /help smsg")
     else:
-        number, message = args.split(" ", 1)
-        # getSignal().sendMessage(message, dbus.Array(signature="s"), number)
-        show_msg(number, None, message, False)
+        try:
+            if args[0] == "+" and args in contacts:
+                identifier = args
+                group = None
+            else:
+                for group in groups:
+                    if groups[group]['name'] == args:
+                        identifier = group
+            buf = get_buffer(identifier, group is not None)
+        except UnboundLocalError:
+            prnt('There is no such contact or group. Try again.')
+
     return weechat.WEECHAT_RC_OK
 
 
