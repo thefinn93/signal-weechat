@@ -277,15 +277,15 @@ def encode_message(message):
 
 
 def buffer_input(number, buffer, message):
-    message = encode_message(message)
-    send("send", username=options["number"], recipientAddress={"number": number}, messageBody=message)
+    encoded = encode_message(message)
+    send("send", username=options["number"], recipientAddress={"number": number}, messageBody=encoded)
     show_msg(number, None, message, False)
     return weechat.WEECHAT_RC_OK
 
 
 def buffer_input_group(groupId, buffer, message):
-    message = encode_message(message)
-    send("send", username=options["number"], recipientGroupId=groupId, messageBody=message)
+    encoded = encode_message(message)
+    send("send", username=options["number"], recipientGroupId=groupId, messageBody=encoded)
     show_msg(None, groupId, message, False)
     return weechat.WEECHAT_RC_OK
 
