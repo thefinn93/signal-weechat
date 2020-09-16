@@ -6,6 +6,10 @@ import json
 import os
 import random
 
+try:
+    import emoji
+except ImportError:
+    emoji = None
 
 SCRIPT_NAME = 'signal'
 SCRIPT_AUTHOR = 'Finn Herzfeld <finn@finn.io>'
@@ -179,7 +183,10 @@ def render_message(message):
     if attachments is not None:
         types = [attach['contentType'] for attach in attachments]
         attachment_msg = "<sent {}> ".format(', '.join(types))
-    return attachment_msg + message.get('body', "")
+    body = message.get('body', "")
+    if emoji is not None:
+        body = emoji.demojize(body)
+    return attachment_msg + body
 
 
 def message_cb(payload):
@@ -263,13 +270,21 @@ def get_buffer(identifier, isGroup):
     return buffers[identifier]
 
 
+def encode_message(message):
+    if emoji is not None:
+        message = emoji.emojize(message, use_aliases=True)
+    return message
+
+
 def buffer_input(number, buffer, message):
+    message = encode_message(message)
     send("send", username=options["number"], recipientAddress={"number": number}, messageBody=message)
     show_msg(number, None, message, False)
     return weechat.WEECHAT_RC_OK
 
 
 def buffer_input_group(groupId, buffer, message):
+    message = encode_message(message)
     send("send", username=options["number"], recipientGroupId=groupId, messageBody=message)
     show_msg(None, groupId, message, False)
     return weechat.WEECHAT_RC_OK
