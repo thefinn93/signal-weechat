@@ -177,7 +177,10 @@ def render_message(message):
     reaction = message.get('reaction')
     if reaction is not None:
         name = contact_name(reaction['targetAuthor']['number'])
-        return "<reacted with {} to a message from {}>".format(reaction["emoji"], name)
+        em = reaction["emoji"]
+        if emoji is not None:
+            em = emoji.demojize(em)
+        return "<reacted with {} to a message from {}>".format(em, name)
     attachment_msg = ""
     attachments = message.get('attachments')
     if attachments is not None:
