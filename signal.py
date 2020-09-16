@@ -179,7 +179,7 @@ def render_message(message):
     if attachments is not None:
         types = [attach['contentType'] for attach in attachments]
         attachment_msg = "<sent {}> ".format(', '.join(types))
-    return attachment_msg + message['body']
+    return attachment_msg + message.get('body', "")
 
 
 def message_cb(payload):
