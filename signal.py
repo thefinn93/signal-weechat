@@ -147,7 +147,8 @@ def receive(data, fd):
         "message": message_cb,
         "contact_list": contact_list_cb,
         "group_list": group_list_cb,
-        "send_results": send_results_cb,
+        "send_results": noop_cb,
+        "sync_requested": noop_cb,
     }
 
     try:
@@ -182,6 +183,7 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
 
 
 def subscribe(number):
+    send("sync_contacts", username=number)
     send("list_contacts", username=number)
     send("list_groups", username=number)
     send("subscribe", username=number, cb=subscribe_cb, cb_kwargs={"number": number})
@@ -224,6 +226,13 @@ def message_cb(payload):
         if payload['syncMessage'].get('readMessages') is not None:
             return
 
+        # if contactsComplete is present, the contact sync from initial plugin
+        # load (or someone else triggering a contacts sync on signald) is
+        # complete, and we should update our contacts list.
+        if payload['syncMessage'].get('contactsComplete', False):
+            send("list_contacts", username=options['number'])
+            return
+
         message = render_message(payload['syncMessage']['sent']['message'])
         groupInfo = payload['syncMessage']['sent']['message'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
@@ -231,7 +240,7 @@ def message_cb(payload):
         show_msg(dest, group, message, False)
 
 
-def send_results_cb(payload):
+def noop_cb(payload):
     pass
 
 
