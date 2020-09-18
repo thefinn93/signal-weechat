@@ -368,6 +368,13 @@ def signal_cmd_cb(data, buffer, args):
 
     return weechat.WEECHAT_RC_OK
 
+def completion_cb(data, completion_item, buffer, completion):
+    for number in contacts:
+        weechat.hook_completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
+    for group in groups:
+        weechat.hook_completion_list_add(completion, groups[group]['name'], 0, weechat.WEECHAT_LIST_POS_SORT)
+    return weechat.WEECHAT_RC_OK
+
 if __name__ == "__main__":
     logger.debug("Preparing to register")
     try:
@@ -383,6 +390,7 @@ if __name__ == "__main__":
                 "groups: list all group names",
             ]
             logger.debug("Registering command...")
+            weechat.hook_completion('signal_contact_or_group','Script to complete numbers','completion_cb', '')
             weechat.hook_command("smsg", "Open a buffer to message someone (or some group) on signal", "[<number or group name>]",
                                  "\n".join(smsg_help), "%(number)", "smsg_cmd_cb", "")
             weechat.hook_command("signal", "List contacts or group names", "list [contacts | groups]",
