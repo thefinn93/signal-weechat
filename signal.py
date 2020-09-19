@@ -370,13 +370,23 @@ def signal_cmd_cb(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 def completion_cb(data, completion_item, buffer, completion):
-    for number in contacts:
-        weechat.hook_completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
-        weechat.hook_completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-        weechat.hook_completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
-    for group in groups:
-        weechat.hook_completion_list_add(completion, groups[group]['name'].lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-        weechat.hook_completion_list_add(completion, groups[group]['name'], 0, weechat.WEECHAT_LIST_POS_SORT)
+    if weechat.info_get('version', '') <= '2.8':
+        for number in contacts:
+            weechat.hook_completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.hook_completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.hook_completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
+        for group in groups:
+            weechat.hook_completion_list_add(completion, groups[group]['name'].lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.hook_completion_list_add(completion, groups[group]['name'], 0, weechat.WEECHAT_LIST_POS_SORT)
+    else:
+        for number in contacts:
+            weechat.completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
+        for group in groups:
+            weechat.completion_list_add(completion, groups[group]['name'].lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.completion_list_add(completion, groups[group]['name'], 0, weechat.WEECHAT_LIST_POS_SORT)
+
     return weechat.WEECHAT_RC_OK
 
 if __name__ == "__main__":
