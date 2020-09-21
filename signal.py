@@ -52,7 +52,8 @@ callbacks = {}
 contacts = {}
 groups = {}
 
-signald_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+signald_hook = None
+signald_socket = None
 
 
 def prnt(text):
@@ -126,9 +127,18 @@ def receive(data, fd):
         # https://stackoverflow.com/a/42795285
         # so we can roundtrip every byte
         while not data.endswith("\n"):
-            data += signald_socket.recv(1).decode('latin1')
+            raw = signald_socket.recv(1).decode('latin1')
+            if len(raw) == 0:
+                logger.info('signald socket disconnected, attempting to reconnect')
+                signald_socket.close()
+                close_socket()
+                init_socket()
+                return weechat.WEECHAT_RC_OK
+            data += raw
     except socket.error:
-        logger.exception("Failed to read from signald. Unload and reload this script to reconnect.")
+        logger.exception("Failed to read from signald.")
+        close_socket()
+        init_socket()
         return weechat.WEECHAT_RC_OK
     logger.debug("Got message from signald: %s", data)
     payload = json.loads(data.encode('latin1'))
@@ -164,7 +174,11 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
         callbacks[request_id] = {"func": cb, "args": cb_args, "kwargs": cb_kwargs}
     msg = json.dumps(payload)
     logger.debug("Sending to signald: %s", msg)
-    signald_socket.sendall((msg + "\n").encode('utf-8'))
+    try:
+        signald_socket.sendall((msg + "\n").encode('utf-8'))
+    except (BrokenPipeError, OSError):
+        close_socket()
+        init_socket()
 
 
 def subscribe(number):
@@ -300,14 +314,26 @@ def buffer_input_group(groupId, buffer, message):
     return weechat.WEECHAT_RC_OK
 
 
+def close_socket():
+    global signald_socket
+    global signald_hook
+
+    if signald_socket is not None:
+        signald_socket.close()
+    if signald_hook is not None:
+        weechat.unhook(signald_hook)
+
+
 def init_socket():
     global signald_socket
+    global signald_hook
+    signald_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         signald_socket.connect(options["socket"])
         # weechat really wants the last argument to be a string, but we really
         # want it to be bytes. so we end up having to do a bunch of gnarly
         # decoding and stuff in receive(). c'est la vie.
-        weechat.hook_fd(signald_socket.fileno(), 1, 0, 0, 'receive', '')
+        signald_hook = weechat.hook_fd(signald_socket.fileno(), 1, 0, 0, 'receive', '')
     except Exception:
         logger.exception("Failed to connect to signald socket")
 
@@ -335,9 +361,8 @@ def config_changed(data, option, value):
 
 
 def shutdown():
-    global signald_socket
     logger.info("Shutdown called, closing signald socket")
-    signald_socket.close()
+    close_socket()
     return weechat.WEECHAT_RC_OK
 
 
