@@ -6,6 +6,13 @@ import json
 import os
 import random
 
+"""
+For completion to work, you need to set option
+weechat.completion.default_template to include signal_contact_or_group, e.g.
+
+%{nicks}|%(irc_channels)|%(signal_contact_or_group)
+"""
+
 try:
     import emoji
 except ImportError:
@@ -412,10 +419,3 @@ if __name__ == "__main__":
             init_socket()
     except Exception:
         logger.exception("Failed to initialize plugin.")
-
-"""
-Must set option weechat.completion.default_template to: %{nicks}|%(irc_channels)|%(signal_contact_or_group)
-for this script to work.
-
-Default is %{nicks}|%(irc_channels)
-"""
