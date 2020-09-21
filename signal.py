@@ -242,8 +242,8 @@ def contact_list_cb(payload):
         contacts[contact['address']['number']] = contact
         logger.debug("Checking for buffers with contact %s", contact)
         if contact['address']['number'] in buffers:
-            b = buffers[contacts['address']['number']]
-            name = contact.get('name', contact['address']['number']).decode('latin1')
+            b = buffers[contact['address']['number']]
+            name = contact.get('name', contact['address']['number'])
             set_buffer_name(b, name)
 
 
