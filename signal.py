@@ -159,7 +159,7 @@ def receive(data, fd):
             signald_callbacks[payload.get('type')](payload.get('data'))
         else:
             prnt("Got unhandled {} message from signald, see debug log for more info".format(payload.get('type')))
-            logger.warn("Got unhandled message of type %s from signald", payload.get('type'))
+            logger.warning("Got unhandled message of type %s from signald", payload.get('type'))
     except:
         logger.exception("exception while handling payload %s", json.dumps(payload, indent="    "))
     return weechat.WEECHAT_RC_OK
