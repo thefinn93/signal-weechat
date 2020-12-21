@@ -149,6 +149,7 @@ def receive(data, fd):
         "group_list": group_list_cb,
         "send_results": noop_cb,
         "sync_requested": noop_cb,
+        "listen_started": noop_cb,
     }
 
     try:
