@@ -234,6 +234,11 @@ def message_cb(payload):
             send("list_contacts", username=options['number'])
             return
 
+        # we don't know how to render anything besides sync messags with actual
+        # 'sent' info.
+        if 'sent' not in payload['syncMessage']:
+            return
+
         message = render_message(payload['syncMessage']['sent']['message'])
         groupInfo = payload['syncMessage']['sent']['message'].get('group')
         group = groupInfo.get('groupId') if groupInfo is not None else None
