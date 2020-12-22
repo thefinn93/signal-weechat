@@ -151,6 +151,7 @@ def receive(data, fd):
         "sync_requested": noop_cb,
         "listen_started": noop_cb,
         "listen_stopped": noop_cb,
+        "account_refreshed": noop_cb,
     }
 
     try:
@@ -189,6 +190,7 @@ def subscribe(number):
     send("list_contacts", username=number)
     send("list_groups", username=number)
     send("subscribe", username=number, cb=subscribe_cb, cb_kwargs={"number": number})
+    send("refresh_account", username=number)
 
 
 def subscribe_cb(payload, number):
