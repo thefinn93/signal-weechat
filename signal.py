@@ -150,6 +150,7 @@ def receive(data, fd):
         "send_results": noop_cb,
         "sync_requested": noop_cb,
         "listen_started": noop_cb,
+        "listen_stopped": noop_cb,
     }
 
     try:
