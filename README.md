@@ -17,7 +17,7 @@ Optional:
 
 1. Install this script: `cp signal.py ~/.weechat/python/signal.py`
 2. Load it in weechat: `/python load signal.py`
-3. Either link to an existing device: `/signal link` or register a new account: `/signal register +12024561414`
+3. Connect to [signald via netcat](https://github.com/thefinn93/signald#quick-start-for-developers) to either register or link an account. Qrcodes can be encoded via qrencode.
 
 
 ## Use
