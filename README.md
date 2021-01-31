@@ -23,6 +23,8 @@ Optional:
 ## Use
 
 `/smsg +12025551212 hi! I'm texting you from weechat!`
+`/signal list contacts`
+`/signal list groups`
 
 
 ## Limitations
