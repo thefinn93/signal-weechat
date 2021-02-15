@@ -238,7 +238,10 @@ def render_message(message):
     attachments = message.get('attachments')
     if attachments is not None:
         types = [attach['contentType'] for attach in attachments]
-        attachment_msg = "<sent {}> ".format(', '.join(types))
+        filenames = [attach['storedFilename'] for attach in attachments]
+        attachment_msg = "<sent {}>: \n{}".format(
+                ', '.join(types),
+                '\n'.join(filenames))
     body = message.get('body', "")
     if emoji is not None:
         body = emoji.demojize(body)
