@@ -29,6 +29,21 @@ SCRIPT_BUFFER = 'signal'
 
 useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
+def get_groupinfo(dictionary):
+    groupInfo = None
+    if 'group' in dictionary.keys():
+        groupInfo = dictionary['group']
+    elif 'groupV2' in dictionary.keys():
+        groupInfo = dictionary['groupV2']
+    return groupInfo
+
+
+def get_groupname(groupinfo):
+    if 'title' in groupinfo:
+        return groupinfo['title']
+    if 'name' in groupinfo:
+        return groupinfo['name']
+
 
 def get_logfile():
     weechat_dir = weechat.info_get("weechat_dir", "") or "~/.weechat"
@@ -85,6 +100,17 @@ def contact_name(number):
         return contacts[number].get('name', number)
     else:
         return number
+
+def contact_number(member):
+    if "number" in member:
+        return member['number']
+    if "uuid" in member:
+        uuid = member['uuid']
+        numbers = [number for number in contacts if contacts[number]['address']['uuid'] == uuid]
+        if len(numbers) == 1:
+            return numbers[0]
+        else:
+            return member['uuid']
 
 def init_config():
     global default_options, options
@@ -222,7 +248,7 @@ def render_message(message):
 def message_cb(payload):
     if payload.get('dataMessage') is not None:
         message = render_message(payload['dataMessage'])
-        groupInfo = payload['dataMessage'].get('group')
+        groupInfo = get_groupinfo(payload['dataMessage'])
         group = groupInfo.get('groupId') if groupInfo is not None else None
         show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
@@ -243,7 +269,7 @@ def message_cb(payload):
             return
 
         message = render_message(payload['syncMessage']['sent']['message'])
-        groupInfo = payload['syncMessage']['sent']['message'].get('group')
+        groupInfo = get_groupinfo(payload['syncMessage']['sent']['message'])
         group = groupInfo.get('groupId') if groupInfo is not None else None
         dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
         show_msg(dest, group, message, False)
@@ -276,17 +302,21 @@ def group_list_cb(payload):
     global groups
     for group in payload['groups']:
         groups[group['groupId']] = group
+    for group in payload['groupsv2']:
+        groups[group['id']] = group
+
 
 
 def setup_group_buffer(groupId):
     global groups
     group = groups[groupId]
     buffer = get_buffer(groupId, True)
-    set_buffer_name(buffer, group['name'])
+    set_buffer_name(buffer, get_groupname(group))
     weechat.buffer_set(buffer, "nicklist", "1")
     weechat.buffer_set(buffer, "nicklist_display_groups", "0")
     for member in group['members']:
-        member_name = contact_name(member['number'])
+        number = contact_number(member)
+        member_name = contact_name(number)
         entry = weechat.nicklist_search_nick(buffer, "", member_name)
         if len(entry) == 0:
             logger.debug("Adding %s to group %s", member_name, groupId)
@@ -395,7 +425,7 @@ def smsg_cmd_cb(data, buffer, args):
                 group = None
         if not identifier:
             for group in groups:
-                if groups[group]['name'] == args:
+                if get_groupname(groups[group]) == args:
                     identifier = group
         if identifier:
             buf = get_buffer(identifier, group is not None)
@@ -407,7 +437,7 @@ def signal_cmd_cb(data, buffer, args):
     if args == 'list groups':
         prnt('List of all available Signal groups:')
         for group in groups:
-            prnt(groups[group]['name'])
+            prnt(get_groupname(groups[group]))
         prnt('')
     elif args == 'list contacts':
         prnt('List of all available contacts:')
@@ -426,16 +456,16 @@ def completion_cb(data, completion_item, buffer, completion):
             weechat.hook_completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
             weechat.hook_completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
         for group in groups:
-            weechat.hook_completion_list_add(completion, groups[group]['name'].lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.hook_completion_list_add(completion, groups[group]['name'], 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.hook_completion_list_add(completion, get_groupname(groups[group]).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.hook_completion_list_add(completion, get_groupname(groups[group]), 0, weechat.WEECHAT_LIST_POS_SORT)
     else:
         for number in contacts:
             weechat.completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
             weechat.completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
             weechat.completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
         for group in groups:
-            weechat.completion_list_add(completion, groups[group]['name'].lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.completion_list_add(completion, groups[group]['name'], 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.completion_list_add(completion, get_groupname(groups[group]).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+            weechat.completion_list_add(completion, get_groupname(groups[group]), 0, weechat.WEECHAT_LIST_POS_SORT)
 
     return weechat.WEECHAT_RC_OK
 
