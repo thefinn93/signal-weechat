@@ -388,7 +388,7 @@ def init_socket():
 
 def set_log_level():
     level = logging.getLevelName(options['loglevel'].upper())
-    logging.basicConfig(level=level, filename=get_logfile())
+    logger.setLevel(level)
     logger.info("Log level set to %s", logging.getLevelName(level))
 
 
