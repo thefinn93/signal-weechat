@@ -38,6 +38,15 @@ def get_groupinfo(dictionary):
     return groupInfo
 
 
+def get_groupid(groupinfo):
+    if groupinfo is None:
+        return None
+    if 'groupId' in groupinfo:
+        return groupinfo['groupId']
+    elif 'id' in groupinfo:
+        return groupinfo['id']
+
+
 def get_groupname(groupinfo):
     if 'title' in groupinfo:
         return groupinfo['title']
@@ -252,7 +261,7 @@ def message_cb(payload):
     if payload.get('dataMessage') is not None:
         message = render_message(payload['dataMessage'])
         groupInfo = get_groupinfo(payload['dataMessage'])
-        group = groupInfo.get('groupId') if groupInfo is not None else None
+        group = get_groupid(groupInfo)
         show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
         # some syncMessages are to synchronize read receipts; we ignore these
@@ -273,7 +282,7 @@ def message_cb(payload):
 
         message = render_message(payload['syncMessage']['sent']['message'])
         groupInfo = get_groupinfo(payload['syncMessage']['sent']['message'])
-        group = groupInfo.get('groupId') if groupInfo is not None else None
+        group = get_groupid(groupInfo)
         dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
         show_msg(dest, group, message, False)
 
@@ -304,9 +313,9 @@ def set_buffer_name(b, name):
 def group_list_cb(payload):
     global groups
     for group in payload['groups']:
-        groups[group['groupId']] = group
+        groups[get_groupid(group)] = group
     for group in payload['groupsv2']:
-        groups[group['id']] = group
+        groups[get_groupid(group)] = group
 
 
 
