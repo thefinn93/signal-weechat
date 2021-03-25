@@ -5,6 +5,7 @@ import socket
 import json
 import os
 import random
+import textwrap
 
 """
 For completion to work, you need to set option
@@ -251,10 +252,23 @@ def render_message(message):
         attachment_msg = "<sent {}>: \n{}".format(
                 ', '.join(types),
                 '\n'.join(filenames))
+
+    quote = message.get('quote')
+    quote_msg = ""
+    if quote is not None:
+        quote_msg = quote['text']
+        if quote_msg != "":
+            wrapper = textwrap.TextWrapper(
+                width=64,
+                initial_indent="{}> ".format(weechat.color("lightgreen")),
+                subsequent_indent="{}> ".format(weechat.color("lightgreen"))
+            )
+            quote_msg = wrapper.fill(weechat.string_remove_color(quote_msg, "")) + "\n"
+
     body = message.get('body', "")
     if emoji is not None:
         body = emoji.demojize(body)
-    return attachment_msg + body
+    return attachment_msg + quote_msg + body
 
 
 def message_cb(payload):
