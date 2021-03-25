@@ -249,7 +249,7 @@ def render_message(message):
     if attachments is not None:
         types = [attach['contentType'] for attach in attachments]
         filenames = [attach['storedFilename'] for attach in attachments]
-        attachment_msg = "<sent {}>: \n{}".format(
+        attachment_msg = "<sent {}>: \n{}\n\n".format(
                 ', '.join(types),
                 '\n'.join(filenames))
 
