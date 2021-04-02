@@ -475,6 +475,35 @@ def signal_cmd_cb(data, buffer, args):
 
     return weechat.WEECHAT_RC_OK
 
+
+def attach_cmd_cb(data, buffer, args):
+    # check if files exist
+    files = [f.strip() for f in args.split(",")]
+    for f in files:
+        if not os.path.exists(f):
+            prnt('could not send attachment: file "{}" could not be found'.format(f))
+            return weechat.WEECHAT_RC_ERROR
+
+    # check if buffer is a valid signal buffer and can be found in contacts
+    number = [n for n in buffers if buffers[n] == buffer]
+    if len(number) != 1:
+        prnt('could not send attachment: buffer {} is no signal'.format(buffer))
+        return weechat.WEECHAT_RC_ERROR
+    else:
+        number = number[0]
+
+    # determine if it's a group or contact,
+    # send files and show confirmation message
+    if number in groups:
+        send("send", username=options["number"], recipientGroupId=number, attachments=files)
+    else:
+        send("send", username=options["number"], recipientAddress={"number": number}, attachments=files)
+
+    msg = "sent file(s):\n{}".format(files)
+    show_msg(number, None, msg, False)
+    return weechat.WEECHAT_RC_OK
+
+
 def completion_cb(data, completion_item, buffer, completion):
     if weechat.info_get('version', '') <= '2.8':
         for number in contacts:
@@ -509,12 +538,17 @@ if __name__ == "__main__":
                 "contacts: list all contact names and numbers",
                 "groups: list all group names",
             ]
+            attach_help = [
+                "filename(s): one or multiple comma-separated filenames"
+            ]
             logger.debug("Registering command...")
             weechat.hook_completion('signal_contact_or_group','Script to complete numbers','completion_cb', '')
             weechat.hook_command("smsg", "Open a buffer to message someone (or some group) on signal", "[<number or group name>]",
                                  "\n".join(smsg_help), "%(number)", "smsg_cmd_cb", "")
             weechat.hook_command("signal", "List contacts or group names", "list [contacts | groups]",
                                  "\n".join(signal_help), "%(list)", "signal_cmd_cb", "")
+            weechat.hook_command("attach", "Attach files", "list [photos, audio, files]",
+                                 "\n".join(attach_help), "%(list)", "attach_cmd_cb", "")
             init_socket()
     except Exception:
         logger.exception("Failed to initialize plugin.")
