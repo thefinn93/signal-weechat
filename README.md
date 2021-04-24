@@ -25,6 +25,7 @@ Optional:
 - `/smsg +12025551212`
 - `/signal list contacts`
 - `/signal list groups`
+- `/signal attach <comma-separated filename(s)>`
 
 
 ## Limitations
