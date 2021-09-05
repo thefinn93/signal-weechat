@@ -107,7 +107,11 @@ def contact_name(number):
     if number == options["number"]:
         return 'Me'
     if number in contacts:
-        return contacts[number].get('name', number)
+        name = contacts[number]\
+                .get('name', number)\
+                .strip()
+        name = ''.join(x for x in name if x.isprintable())
+        return name
     else:
         return number
 
@@ -360,7 +364,7 @@ def get_buffer(identifier, isGroup):
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
         buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "buffer_close_cb", identifier)
         if not isGroup and identifier in contacts:
-            name = contacts[identifier].get('name', identifier)
+            name = contact_name(identifier)
             set_buffer_name(buffers[identifier], name)
         if isGroup:
             setup_group_buffer(identifier)
@@ -446,7 +450,8 @@ def smsg_cmd_cb(data, buffer, args):
         prnt("Usage: /smsg [number | group]")
     else:
         for number in contacts:
-            if number == args or contacts[number].get('name', number).lower() == args.lower():
+            if number == args or contact_name(number).lower() == args.lower():
+                print("found your number")
                 identifier = number
                 group = None
         if not identifier:
