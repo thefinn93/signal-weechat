@@ -276,7 +276,12 @@ def render_message(message):
     body = message.get('body', "")
     if emoji is not None:
         body = emoji.demojize(body)
-    return attachment_msg + quote_msg + body
+
+    message_string = attachment_msg + quote_msg + body
+    if message_string.strip() == "":
+        return None
+    else:
+        return message_string
 
 
 def message_cb(payload):
