@@ -107,7 +107,11 @@ def contact_name(number):
     if number == options["number"]:
         return 'Me'
     if number in contacts:
-        return contacts[number].get('name', number)
+        name = contacts[number]\
+                .get('name', number)\
+                .strip()
+        name = ''.join(x for x in name if x.isprintable())
+        return name
     else:
         return number
 
@@ -180,14 +184,18 @@ def receive(data, fd):
     payload = json.loads(data.encode('latin1'))
     signald_callbacks = {
         "version": handle_version,
-        "message": message_cb,
-        "contact_list": contact_list_cb,
-        "group_list": group_list_cb,
+        "IncomingMessage": message_cb,
+        "list_contacts": contact_list_cb,
+        "list_groups": group_list_cb,
         "send_results": noop_cb,
         "sync_requested": noop_cb,
         "listen_started": noop_cb,
         "listen_stopped": noop_cb,
         "account_refreshed": noop_cb,
+        "ListenerState": noop_cb,
+        "send": noop_cb,
+        "request_sync": noop_cb,
+        "ExceptionWrapper": noop_cb,
     }
 
     try:
@@ -210,6 +218,7 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
     payload = kwargs
     payload['type'] = msgtype
     payload["id"] = request_id
+    payload["version"] = "v1"
     if cb is not None:
         callbacks[request_id] = {"func": cb, "args": cb_args, "kwargs": cb_kwargs}
     msg = json.dumps(payload)
@@ -222,11 +231,10 @@ def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
 
 
 def subscribe(number):
-    send("sync_contacts", username=number)
-    send("list_contacts", username=number)
-    send("list_groups", username=number)
-    send("subscribe", username=number, cb=subscribe_cb, cb_kwargs={"number": number})
-    send("refresh_account", username=number)
+    send("request_sync", account=number)
+    send("list_contacts", account=number)
+    send("list_groups", account=number)
+    send("subscribe", account=number, cb=subscribe_cb, cb_kwargs={"number": number})
 
 
 def subscribe_cb(payload, number):
@@ -268,15 +276,21 @@ def render_message(message):
     body = message.get('body', "")
     if emoji is not None:
         body = emoji.demojize(body)
-    return attachment_msg + quote_msg + body
+
+    message_string = attachment_msg + quote_msg + body
+    if message_string.strip() == "":
+        return None
+    else:
+        return message_string
 
 
 def message_cb(payload):
-    if payload.get('dataMessage') is not None:
-        message = render_message(payload['dataMessage'])
-        groupInfo = get_groupinfo(payload['dataMessage'])
-        group = get_groupid(groupInfo)
-        show_msg(payload['source']['number'], group, message, True)
+    if payload.get('data_message') is not None:
+        message = render_message(payload['data_message'])
+        if message is not None:
+            groupInfo = get_groupinfo(payload['data_message'])
+            group = get_groupid(groupInfo)
+            show_msg(payload['source']['number'], group, message, True)
     elif payload.get('syncMessage') is not None:
         # some syncMessages are to synchronize read receipts; we ignore these
         if payload['syncMessage'].get('readMessages') is not None:
@@ -286,7 +300,7 @@ def message_cb(payload):
         # load (or someone else triggering a contacts sync on signald) is
         # complete, and we should update our contacts list.
         if payload['syncMessage'].get('contactsComplete', False):
-            send("list_contacts", username=options['number'])
+            send("list_contacts", account=options['number'])
             return
 
         # we don't know how to render anything besides sync messags with actual
@@ -308,12 +322,13 @@ def noop_cb(payload):
 def contact_list_cb(payload):
     global contacts
 
-    for contact in payload:
+    for contact in payload['profiles']:
         contacts[contact['address']['number']] = contact
         logger.debug("Checking for buffers with contact %s", contact)
         if contact['address']['number'] in buffers:
-            b = buffers[contact['address']['number']]
-            name = contact.get('name', contact['address']['number'])
+            number = contact['address']['number']
+            b = buffers[number]
+            name = contact_name(number)
             set_buffer_name(b, name)
 
 
@@ -360,7 +375,7 @@ def get_buffer(identifier, isGroup):
         logger.debug("Creating buffer for identifier %s (%s)", identifier, "group" if isGroup else "contact")
         buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "buffer_close_cb", identifier)
         if not isGroup and identifier in contacts:
-            name = contacts[identifier].get('name', identifier)
+            name = contact_name(identifier)
             set_buffer_name(buffers[identifier], name)
         if isGroup:
             setup_group_buffer(identifier)
@@ -446,7 +461,8 @@ def smsg_cmd_cb(data, buffer, args):
         prnt("Usage: /smsg [number | group]")
     else:
         for number in contacts:
-            if number == args or contacts[number].get('name', number).lower() == args.lower():
+            if number == args or contact_name(number).lower() == args.lower():
+                print("found your number")
                 identifier = number
                 group = None
         if not identifier:
