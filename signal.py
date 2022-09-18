@@ -86,17 +86,18 @@ def show_msg(number, group, message, incoming):
     identifier = number if group is None else group
     buf = get_buffer(identifier, group is not None)
     name = "Me"
+    tags = ""
     if incoming:
         name = contact_name(number)
-    weechat.prnt(buf, "%s\t%s" % (name, message))
-    if incoming:
         if group is None:
             # 1:1 messages are private messages
             hotness = weechat.WEECHAT_HOTLIST_PRIVATE
+            tags = "notify_private"
         else:
             # group messages are treated as 'messages'
             hotness = weechat.WEECHAT_HOTLIST_MESSAGE
         weechat.buffer_set(buf, "hotlist", hotness)
+    weechat.prnt_date_tags(buf, 0, tags,  "%s\t%s" % (name, message))
 
 
 def contact_name(number):
@@ -110,6 +111,7 @@ def contact_name(number):
         return name
     else:
         return number
+
 
 def contact_number(member):
     if "number" in member:
@@ -374,6 +376,7 @@ def get_buffer(identifier, isGroup):
         buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "buffer_close_cb", identifier)
         if not isGroup and identifier in contacts:
             name = contact_name(identifier)
+            weechat.buffer_set(buffers[identifier], "localvar_set_type", "private")
             set_buffer_name(buffers[identifier], name)
         if isGroup:
             setup_group_buffer(identifier)
