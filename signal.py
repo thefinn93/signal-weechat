@@ -56,12 +56,8 @@ def get_groupname(groupinfo):
 
 
 def get_logfile():
-    weechat_dir = weechat.info_get("weechat_dir", "") or "~/.weechat"
+    weechat_dir = weechat.info_get("weechat_data_dir", "") or weechat.info_get("weechat_dir", "") or "~/.weechat"
     return os.path.join(os.path.expanduser(weechat_dir), "logs", "signal.log")
-
-
-logging.basicConfig(filename=get_logfile())
-logger = logging.getLogger("weechat_script")
 
 default_options = {
     "socket": "/var/run/signald/signald.sock",
@@ -127,7 +123,9 @@ def contact_number(member):
             return member['uuid']
 
 def init_config():
-    global default_options, options
+    global default_options, options, logger
+    logging.basicConfig(filename=get_logfile())
+    logger = logging.getLogger("weechat_script")
     for option, default_value in default_options.items():
         if not weechat.config_is_set_plugin(option):
             weechat.config_set_plugin(option, default_value)
@@ -543,7 +541,6 @@ def completion_cb(data, completion_item, buffer, completion):
     return weechat.WEECHAT_RC_OK
 
 if __name__ == "__main__":
-    logger.debug("Preparing to register")
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
             weechat.hook_config('plugins.var.python.%s.*' % SCRIPT_NAME, 'config_changed', '')
