@@ -86,12 +86,12 @@ def prnt(text):
     weechat.prnt("", "signal\t%s" % text)
 
 
-def show_msg(number, group, message, incoming):
-    identifier = number if group is None else group
+def show_msg(uuid, group, message, incoming):
+    identifier = uuid if group is None else group
     buf = get_buffer(identifier, group is not None)
     name = "Me"
     if incoming:
-        name = contact_name(number)
+        name = contact_name(uuid)
     weechat.prnt(buf, "%s\t%s" % (name, message))
     if incoming:
         if group is None:
@@ -103,28 +103,18 @@ def show_msg(number, group, message, incoming):
         weechat.buffer_set(buf, "hotlist", hotness)
 
 
-def contact_name(number):
-    if number == options["number"]:
+def contact_name(uuid):
+    if uuid == options["number"]:
         return 'Me'
-    if number in contacts:
-        name = contacts[number]\
-                .get('name', number)\
+    if uuid in contacts:
+        name = contacts[uuid]\
+                .get('name', uuid)\
                 .strip()
         name = ''.join(x for x in name if x.isprintable())
         return name
     else:
-        return number
+        return uuid
 
-def contact_number(member):
-    if "number" in member:
-        return member['number']
-    if "uuid" in member:
-        uuid = member['uuid']
-        numbers = [number for number in contacts if contacts[number]['address']['uuid'] == uuid]
-        if len(numbers) == 1:
-            return numbers[0]
-        else:
-            return member['uuid']
 
 def init_config():
     global default_options, options
@@ -247,7 +237,7 @@ def render_message(message):
         return "<sent sticker>"
     reaction = message.get('reaction')
     if reaction is not None:
-        name = contact_name(reaction['targetAuthor']['number'])
+        name = contact_name(reaction['targetAuthor']['uuid'])
         em = reaction["emoji"]
         if emoji is not None:
             em = emoji.demojize(em)
@@ -290,7 +280,7 @@ def message_cb(payload):
         if message is not None:
             groupInfo = get_groupinfo(payload['data_message'])
             group = get_groupid(groupInfo)
-            show_msg(payload['source']['number'], group, message, True)
+            show_msg(payload['source']['uuid'], group, message, True)
     elif payload.get('syncMessage') is not None:
         # some syncMessages are to synchronize read receipts; we ignore these
         if payload['syncMessage'].get('readMessages') is not None:
@@ -311,7 +301,7 @@ def message_cb(payload):
         message = render_message(payload['syncMessage']['sent']['message'])
         groupInfo = get_groupinfo(payload['syncMessage']['sent']['message'])
         group = get_groupid(groupInfo)
-        dest = payload['syncMessage']['sent']['destination']['number'] if groupInfo is None else None
+        dest = payload['syncMessage']['sent']['destination']['uuid'] if groupInfo is None else None
         show_msg(dest, group, message, False)
 
 
@@ -323,12 +313,12 @@ def contact_list_cb(payload):
     global contacts
 
     for contact in payload['profiles']:
-        contacts[contact['address']['number']] = contact
+        uuid = contact['address']['uuid']
+        contacts[uuid] = contact
         logger.debug("Checking for buffers with contact %s", contact)
-        if contact['address']['number'] in buffers:
-            number = contact['address']['number']
-            b = buffers[number]
-            name = contact_name(number)
+        if uuid in buffers:
+            b = buffers[uuid]
+            name = contact_name(uuid)
             set_buffer_name(b, name)
 
 
@@ -356,8 +346,8 @@ def setup_group_buffer(groupId):
     weechat.buffer_set(buffer, "nicklist", "1")
     weechat.buffer_set(buffer, "nicklist_display_groups", "0")
     for member in group['members']:
-        number = contact_number(member)
-        member_name = contact_name(number)
+        uuid = member['uuid']
+        member_name = contact_name(uuid)
         entry = weechat.nicklist_search_nick(buffer, "", member_name)
         if len(entry) == 0:
             logger.debug("Adding %s to group %s", member_name, groupId)
@@ -389,10 +379,10 @@ def encode_message(message):
     return message
 
 
-def buffer_input(number, buffer, message):
+def buffer_input(uuid, buffer, message):
     encoded = encode_message(message)
-    send("send", username=options["number"], recipientAddress={"number": number}, messageBody=encoded)
-    show_msg(number, None, message, False)
+    send("send", username=options["number"], recipientAddress={"uuid": uuid}, messageBody=encoded)
+    show_msg(uuid, None, message, False)
     return weechat.WEECHAT_RC_OK
 
 
@@ -460,10 +450,10 @@ def smsg_cmd_cb(data, buffer, args):
     if len(args) == 0:
         prnt("Usage: /smsg [number | group]")
     else:
-        for number in contacts:
-            if number == args or contact_name(number).lower() == args.lower():
+        for uuid in contacts:
+            if uuid == args or contact_name(uuid).lower() == args.lower():
                 print("found your number")
-                identifier = number
+                identifier = uuid
                 group = None
         if not identifier:
             for group in groups:
@@ -483,9 +473,9 @@ def signal_cmd_cb(data, buffer, args):
         prnt('')
     elif args == 'list contacts':
         prnt('List of all available contacts:')
-        for number in contacts:
-            if contact_name(number) != options['number']:
-                prnt('{name}, {number}\n'.format(name=contact_name(number), number=number))
+        for uuid in contacts:
+            if contact_name(uuid) != options['number']:
+                prnt('{name}, {uuid}\n'.format(name=contact_name(uuid), uuid=uuid))
         prnt('')
     elif args.startswith('attach'):
         attach_cmd_cb(data, buffer, args.lstrip("attach"))
@@ -503,42 +493,32 @@ def attach_cmd_cb(data, buffer, args):
             return weechat.WEECHAT_RC_ERROR
 
     # check if buffer is a valid signal buffer and can be found in contacts
-    number = [n for n in buffers if buffers[n] == buffer]
-    if len(number) != 1:
+    uuid = [n for n in buffers if buffers[n] == buffer]
+    if len(uuid) != 1:
         prnt('could not send attachment: buffer {} is no signal'.format(buffer))
         return weechat.WEECHAT_RC_ERROR
     else:
-        number = number[0]
+        uuid = uuid[0]
 
     # determine if it's a group or contact,
     # send files and show confirmation message
-    if number in groups:
-        send("send", username=options["number"], recipientGroupId=number, attachments=files)
+    if uuid in groups:
+        send("send", username=options["number"], recipientGroupId=uuid, attachments=files)
     else:
-        send("send", username=options["number"], recipientAddress={"number": number}, attachments=files)
+        send("send", username=options["number"], recipientAddress={"uuid": uuid}, attachments=files)
 
     msg = "sent file(s):\n{}".format(files)
-    show_msg(number, None, msg, False)
+    show_msg(uuid, None, msg, False)
     return weechat.WEECHAT_RC_OK
 
 
 def completion_cb(data, completion_item, buffer, completion):
-    if weechat.info_get('version', '') <= '2.8':
-        for number in contacts:
-            weechat.hook_completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.hook_completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.hook_completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
-        for group in groups:
-            weechat.hook_completion_list_add(completion, get_groupname(groups[group]).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.hook_completion_list_add(completion, get_groupname(groups[group]), 0, weechat.WEECHAT_LIST_POS_SORT)
-    else:
-        for number in contacts:
-            weechat.completion_list_add(completion, number, 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.completion_list_add(completion, contact_name(number).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.completion_list_add(completion, contact_name(number), 0, weechat.WEECHAT_LIST_POS_SORT)
-        for group in groups:
-            weechat.completion_list_add(completion, get_groupname(groups[group]).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
-            weechat.completion_list_add(completion, get_groupname(groups[group]), 0, weechat.WEECHAT_LIST_POS_SORT)
+    for uuid in contacts:
+        weechat.completion_list_add(completion, contact_name(uuid).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+        weechat.completion_list_add(completion, contact_name(uuid), 0, weechat.WEECHAT_LIST_POS_SORT)
+    for group in groups:
+        weechat.completion_list_add(completion, get_groupname(groups[group]).lower(), 0, weechat.WEECHAT_LIST_POS_SORT)
+        weechat.completion_list_add(completion, get_groupname(groups[group]), 0, weechat.WEECHAT_LIST_POS_SORT)
 
     return weechat.WEECHAT_RC_OK
 
