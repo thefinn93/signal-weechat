@@ -56,12 +56,8 @@ def get_groupname(groupinfo):
 
 
 def get_logfile():
-    weechat_dir = weechat.info_get("weechat_dir", "") or "~/.weechat"
+    weechat_dir = weechat.info_get("weechat_data_dir", "") or weechat.info_get("weechat_dir", "") or "~/.weechat"
     return os.path.join(os.path.expanduser(weechat_dir), "logs", "signal.log")
-
-
-logging.basicConfig(filename=get_logfile())
-logger = logging.getLogger("weechat_script")
 
 default_options = {
     "socket": "/var/run/signald/signald.sock",
@@ -90,17 +86,18 @@ def show_msg(uuid, group, message, incoming):
     identifier = uuid if group is None else group
     buf = get_buffer(identifier, group is not None)
     name = "Me"
+    tags = ""
     if incoming:
         name = contact_name(uuid)
-    weechat.prnt(buf, "%s\t%s" % (name, message))
-    if incoming:
         if group is None:
             # 1:1 messages are private messages
             hotness = weechat.WEECHAT_HOTLIST_PRIVATE
+            tags = "notify_private"
         else:
             # group messages are treated as 'messages'
             hotness = weechat.WEECHAT_HOTLIST_MESSAGE
         weechat.buffer_set(buf, "hotlist", hotness)
+    weechat.prnt_date_tags(buf, 0, tags,  "%s\t%s" % (name, message))
 
 
 def contact_name(uuid):
@@ -115,9 +112,10 @@ def contact_name(uuid):
     else:
         return uuid
 
-
 def init_config():
-    global default_options, options
+    global default_options, options, logger
+    logging.basicConfig(filename=get_logfile())
+    logger = logging.getLogger("weechat_script")
     for option, default_value in default_options.items():
         if not weechat.config_is_set_plugin(option):
             weechat.config_set_plugin(option, default_value)
@@ -366,6 +364,7 @@ def get_buffer(identifier, isGroup):
         buffers[identifier] = weechat.buffer_new(identifier, cb, identifier, "buffer_close_cb", identifier)
         if not isGroup and identifier in contacts:
             name = contact_name(identifier)
+            weechat.buffer_set(buffers[identifier], "localvar_set_type", "private")
             set_buffer_name(buffers[identifier], name)
         if isGroup:
             setup_group_buffer(identifier)
@@ -523,7 +522,6 @@ def completion_cb(data, completion_item, buffer, completion):
     return weechat.WEECHAT_RC_OK
 
 if __name__ == "__main__":
-    logger.debug("Preparing to register")
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
             weechat.hook_config('plugins.var.python.%s.*' % SCRIPT_NAME, 'config_changed', '')
