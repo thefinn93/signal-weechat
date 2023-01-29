@@ -184,6 +184,7 @@ def receive(data, fd):
         "send": noop_cb,
         "request_sync": noop_cb,
         "ExceptionWrapper": noop_cb,
+        "WebSocketConnectionState": noop_cb,
     }
 
     try:
