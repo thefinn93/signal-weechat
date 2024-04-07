@@ -263,6 +263,16 @@ def render_message(message):
             quote_msg = wrapper.fill(weechat.string_remove_color(quote_msg, "")) + "\n"
 
     body = message.get('body', "")
+    mentions = message.get('mentions', [])
+    for mention in mentions[::-1]:
+        mentioned = contact_name(mention["uuid"])
+        body = "{first_part}{start_highlight}{name}{stop_highlight}{second_part}".format(
+                first_part=body[:mention["start"]],
+                start_highlight=weechat.color("lightgreen"),
+                name=mentioned,
+                stop_highlight=weechat.color("chat"),
+                second_part=body[mention["start"] + mention["length"]:])
+
     if emoji is not None:
         body = emoji.demojize(body)
 
@@ -330,9 +340,9 @@ def set_buffer_name(b, name):
 
 def group_list_cb(payload):
     global groups
-    for group in payload['groups']:
+    for group in payload.get('groups', []):
         groups[get_groupid(group)] = group
-    for group in payload['groupsv2']:
+    for group in payload.get('groupsv2', []):
         groups[get_groupid(group)] = group
 
 
