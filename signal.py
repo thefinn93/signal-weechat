@@ -82,22 +82,21 @@ def prnt(text):
     weechat.prnt("", "signal\t%s" % text)
 
 
-def show_msg(uuid, group, message, incoming):
+def show_msg(uuid, group, message, incoming, tags=[]):
     identifier = uuid if group is None else group
     buf = get_buffer(identifier, group is not None)
     name = "Me"
-    tags = ""
     if incoming:
         name = contact_name(uuid)
         if group is None:
             # 1:1 messages are private messages
             hotness = weechat.WEECHAT_HOTLIST_PRIVATE
-            tags = "notify_private"
+            tags.append("notify_private")
         else:
             # group messages are treated as 'messages'
             hotness = weechat.WEECHAT_HOTLIST_MESSAGE
         weechat.buffer_set(buf, "hotlist", hotness)
-    weechat.prnt_date_tags(buf, 0, tags,  "%s\t%s" % (name, message))
+    weechat.prnt_date_tags(buf, 0, ",".join(tags),  "%s\t%s" % (name, message))
 
 
 def contact_name(uuid):
