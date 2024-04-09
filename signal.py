@@ -550,6 +550,20 @@ def completion_cb(data, completion_item, buffer, completion):
 
     return weechat.WEECHAT_RC_OK
 
+def get_author(payload):
+    source = payload.get('source', None)
+    if source is not None:
+        return source.get('uuid', '')
+    else:
+        return ''
+
+def get_timestamp(payload):
+    data_message = payload.get('data_message', None)
+    if data_message is not None:
+        return data_message.get('timestamp', '')
+    else:
+        return ''
+
 if __name__ == "__main__":
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
