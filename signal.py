@@ -287,10 +287,16 @@ def render_message(message):
 def message_cb(payload):
     if payload.get('data_message') is not None:
         message = render_message(payload['data_message'])
+        timestamp = get_timestamp(payload)
+        author = get_author(payload)
+        tags = [
+            "author_{}".format(author),
+            "timestamp_{}".format(timestamp),
+        ]
         if message is not None:
             groupInfo = get_groupinfo(payload['data_message'])
             group = get_groupid(groupInfo)
-            show_msg(payload['source']['uuid'], group, message, True)
+            show_msg(payload['source']['uuid'], group, message, True, tags)
     elif payload.get('syncMessage') is not None:
         # some syncMessages are to synchronize read receipts; we ignore these
         if payload['syncMessage'].get('readMessages') is not None:
@@ -309,10 +315,16 @@ def message_cb(payload):
             return
 
         message = render_message(payload['syncMessage']['sent']['message'])
+        timestamp = get_timestamp(payload)
+        author = get_author(payload)
+        tags = [
+            "author_{}".format(author),
+            "timestamp_{}".format(timestamp),
+        ]
         groupInfo = get_groupinfo(payload['syncMessage']['sent']['message'])
         group = get_groupid(groupInfo)
         dest = payload['syncMessage']['sent']['destination']['uuid'] if groupInfo is None else None
-        show_msg(dest, group, message, False)
+        show_msg(dest, group, message, False, tags)
 
 
 def noop_cb(payload):
