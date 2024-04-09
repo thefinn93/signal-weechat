@@ -502,6 +502,12 @@ def signal_cmd_cb(data, buffer, args):
         prnt('')
     elif args.startswith('attach'):
         attach_cmd_cb(data, buffer, args.lstrip("attach"))
+    elif args.startswith('reply'):
+        reply_cmd_cb(data, buffer, args.lstrip("reply"))
+    elif args.startswith('up'):
+        up_cmd_cb(data, buffer, "")
+    elif args.startswith('down'):
+        down_cmd_cb(data, buffer, "")
     else: pass
 
     return weechat.WEECHAT_RC_OK
@@ -610,6 +616,67 @@ def active_line_toggle_highlight(on=True):
         tags.append("signal_highlight")
     weechat.hdata_update(hdata, line_data, {"message": message})
     weechat.hdata_update(hdata, line_data, {"tags_array": ",".join(tags)})
+
+def up_cmd_cb(data, buffer, args):
+    if get_signal_uuid(buffer) is None:
+        return weechat.WEECHAT_RC_ERROR
+    active_line_toggle_highlight(on=False)
+    move_active_line(previous=True)
+    active_line_toggle_highlight(on=True)
+    return weechat.WEECHAT_RC_OK
+
+def down_cmd_cb(data, buffer, args):
+    if get_signal_uuid(buffer) is None:
+        return weechat.WEECHAT_RC_ERROR
+    active_line_toggle_highlight(on=False)
+    move_active_line(previous=False)
+    active_line_toggle_highlight(on=True)
+    return weechat.WEECHAT_RC_OK
+
+def reply_cmd_cb(data, buffer, args):
+
+    if active_line is None:
+        prnt("no line for reply selected")
+        return weechat.WEECHAT_RC_ERROR
+
+    line, line_data = active_line
+    tags = get_tags(line_data)
+    author = [t for t in tags if t.startswith("author_")]
+    timestamp = [t for t in tags if t.startswith("timestamp_")]
+    if len(author) != 1 or len(timestamp) != 1:
+        prnt("Could not reply: Found {} authors and {} timestamps".format(
+            len(author),
+            len(timestamp))
+        )
+        return weechat.WEECHAT_RC_ERROR
+    timestamp = timestamp[0].replace("timestamp_", "")
+    author = author[0].replace("author_", "")
+
+    uuid = get_signal_uuid(buffer)
+    if uuid is None:
+        prnt('could not send reply: buffer {} is no signal'.format(buffer))
+        return weechat.WEECHAT_RC_ERROR
+
+    encoded = encode_message(args)
+    quote = {
+        "id": timestamp,
+        "author": {
+            "uuid": author,
+        }
+    }
+    if uuid in groups:
+        send("send", username=options["number"], recipientGroupId=uuid, messageBody=encoded, quote=quote)
+    else:
+        send("send", username=options["number"], recipientAddress={"uuid": uuid}, messageBody=encoded, quote=quote)
+
+    old_message = weechat.hdata_string(hdata, line_data, "message")
+    if len(old_message) > 20:
+        old_message = old_message[:20] + "..."
+    show_msg(uuid, None, "{}> reply to: {}{}".format(
+        weechat.color("green"), old_message, weechat.color("chat")
+    ), False)
+    show_msg(uuid, None, encoded, False)
+    return weechat.WEECHAT_RC_OK
 
 if __name__ == "__main__":
     try:
