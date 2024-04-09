@@ -30,6 +30,10 @@ SCRIPT_BUFFER = 'signal'
 
 useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
+active_line = None
+highlight = weechat.color("_bold")
+hdata = weechat.hdata_get("line_data")
+
 def get_groupinfo(dictionary):
     groupInfo = None
     if 'group' in dictionary.keys():
@@ -228,7 +232,6 @@ def subscribe(number):
 def subscribe_cb(payload, number):
     prnt("Successfully subscribed to {}".format(number))
 
-
 def render_message(message):
     sticker = message.get('sticker')
     if sticker is not None:
@@ -280,7 +283,6 @@ def render_message(message):
         return None
     else:
         return message_string
-
 
 def message_cb(payload):
     if payload.get('data_message') is not None:
