@@ -564,6 +564,16 @@ def get_timestamp(payload):
     else:
         return ''
 
+def get_tags(line_data):
+    message = weechat.hdata_string(hdata, line_data, "message")
+    tags_count = weechat.hdata_get_var_array_size(hdata, line_data, "tags_array")
+
+    tags = [
+        weechat.hdata_string(hdata, line_data, "%d|tags_array" % i)
+        for i in range(tags_count)
+    ]
+    return tags
+
 if __name__ == "__main__":
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
