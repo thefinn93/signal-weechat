@@ -574,6 +574,15 @@ def get_tags(line_data):
     ]
     return tags
 
+def get_last_line():
+    own_lines = weechat.hdata_pointer(weechat.hdata_get("buffer"), weechat.current_buffer(), "own_lines")
+    if own_lines:
+        line = weechat.hdata_pointer(weechat.hdata_get("lines"), own_lines, "last_line")
+        if line:
+            line_data = weechat.hdata_pointer(weechat.hdata_get("line"), line, "data")
+            return (line, line_data)
+    return None
+
 if __name__ == "__main__":
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
