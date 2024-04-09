@@ -583,6 +583,34 @@ def get_last_line():
             return (line, line_data)
     return None
 
+def move_active_line(previous=True):
+    global active_line
+    if active_line is None:
+        active_line = get_last_line()
+        return
+    other_line = "prev_line" if previous else "next_line"
+    line, _ = active_line
+    line = weechat.hdata_pointer(weechat.hdata_get("line"), line, other_line)
+    if line:
+        line_data = weechat.hdata_pointer(weechat.hdata_get("line"), line, "data")
+        active_line = (line, line_data)
+
+def active_line_toggle_highlight(on=True):
+    global active_line
+    if active_line is None:
+        return
+    line, line_data = active_line
+    tags = get_tags(line_data)
+    message = weechat.hdata_string(hdata, line_data, "message")
+    if "signal_highlight" in tags and on is False:
+        message = message[len(highlight):]
+        tags.remove("signal_highlight")
+    elif "signal_highlight" not in tags and on is True:
+        message = "{}{}".format(highlight, message)
+        tags.append("signal_highlight")
+    weechat.hdata_update(hdata, line_data, {"message": message})
+    weechat.hdata_update(hdata, line_data, {"tags_array": ",".join(tags)})
+
 if __name__ == "__main__":
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
