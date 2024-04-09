@@ -506,6 +506,14 @@ def signal_cmd_cb(data, buffer, args):
 
     return weechat.WEECHAT_RC_OK
 
+def get_signal_uuid(buffer):
+    # check if buffer is a valid signal buffer and can be found in contacts
+    uuid = [n for n in buffers if buffers[n] == buffer]
+    if len(uuid) != 1:
+        prnt("{} uuids for buffer {} found".format(len(uuid), buffer))
+        return None
+    else:
+        return uuid[0]
 
 def attach_cmd_cb(data, buffer, args):
     # check if files exist
@@ -516,12 +524,10 @@ def attach_cmd_cb(data, buffer, args):
             return weechat.WEECHAT_RC_ERROR
 
     # check if buffer is a valid signal buffer and can be found in contacts
-    uuid = [n for n in buffers if buffers[n] == buffer]
-    if len(uuid) != 1:
+    uuid = get_signal_uuid(buffer)
+    if uuid is None:
         prnt('could not send attachment: buffer {} is no signal'.format(buffer))
         return weechat.WEECHAT_RC_ERROR
-    else:
-        uuid = uuid[0]
 
     # determine if it's a group or contact,
     # send files and show confirmation message
@@ -533,7 +539,6 @@ def attach_cmd_cb(data, buffer, args):
     msg = "sent file(s):\n{}".format(files)
     show_msg(uuid, None, msg, False)
     return weechat.WEECHAT_RC_OK
-
 
 def completion_cb(data, completion_item, buffer, completion):
     for uuid in contacts:
