@@ -617,6 +617,14 @@ def active_line_toggle_highlight(on=True):
     weechat.hdata_update(hdata, line_data, {"message": message})
     weechat.hdata_update(hdata, line_data, {"tags_array": ",".join(tags)})
 
+def reset_active_line_cb(data, signal, signal_data):
+    global active_line
+    if active_line is None:
+        return weechat.WEECHAT_RC_OK
+    active_line_toggle_highlight(on=False)
+    active_line = None
+    return weechat.WEECHAT_RC_OK
+
 def up_cmd_cb(data, buffer, args):
     if get_signal_uuid(buffer) is None:
         return weechat.WEECHAT_RC_ERROR
@@ -698,6 +706,7 @@ if __name__ == "__main__":
                                  "\n".join(smsg_help), "%(number)", "smsg_cmd_cb", "")
             weechat.hook_command("signal", "List contacts or group names, or send attachments", "list [contacts | groups | attach]",
                                  "\n".join(signal_help), "%(list)", "signal_cmd_cb", "")
+            weechat.hook_signal("buffer_switch", "reset_active_line_cb", "")
             init_socket()
     except Exception:
         logger.exception("Failed to initialize plugin.")
