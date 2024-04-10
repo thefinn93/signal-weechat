@@ -404,7 +404,6 @@ def encode_message(message):
         message = emoji.emojize(message, use_aliases=True)
     return message
 
-
 def send_message(uuid, message, **kwargs):
     encoded = encode_message(message)
     request_id = get_request_id()
@@ -538,13 +537,13 @@ def attach_cmd_cb(data, buffer, args):
     files = [f.strip() for f in args.split(",")]
     for f in files:
         if not os.path.exists(f):
-            prnt('could not send attachment: file "{}" could not be found'.format(f))
+            prnt('Could not send attachment: file "{}" could not be found'.format(f))
             return weechat.WEECHAT_RC_ERROR
 
     # check if buffer is a valid signal buffer and can be found in contacts
     uuid = get_signal_uuid(buffer)
     if uuid is None:
-        prnt('could not send attachment: buffer {} is no signal'.format(buffer))
+        prnt('Could not send attachment: buffer {} is no signal'.format(buffer))
         return weechat.WEECHAT_RC_ERROR
 
     # determine if it's a group or contact,
@@ -659,7 +658,7 @@ def reply_cmd_cb(data, buffer, args):
     hdata = weechat.hdata_get("line_data")
 
     if active_line is None:
-        prnt("no line for reply selected")
+        prnt("No line for reply selected")
         return weechat.WEECHAT_RC_ERROR
 
     line, line_data = active_line
@@ -677,7 +676,7 @@ def reply_cmd_cb(data, buffer, args):
 
     uuid = get_signal_uuid(buffer)
     if uuid is None:
-        prnt('could not send reply: buffer {} is no signal'.format(buffer))
+        prnt('Could not send reply: buffer {} is no signal'.format(buffer))
         return weechat.WEECHAT_RC_ERROR
 
     encoded = encode_message(args)
