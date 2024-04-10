@@ -33,6 +33,7 @@ useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
 active_line = None
 highlight = weechat.color("_bold")
+own_uuid = None
 
 def get_groupinfo(dictionary):
     groupInfo = None
@@ -188,6 +189,7 @@ def receive(data, fd):
         "request_sync": noop_cb,
         "ExceptionWrapper": noop_cb,
         "WebSocketConnectionState": noop_cb,
+        "get_profile": noop_cb,
     }
 
     try:
@@ -226,6 +228,7 @@ def subscribe(number):
     send("request_sync", account=number)
     send("list_contacts", account=number)
     send("list_groups", account=number)
+    send("get_profile", account=number, address={"number": number}, cb=set_uuid)
     send("subscribe", account=number, cb=subscribe_cb, cb_kwargs={"number": number})
 
 
@@ -693,6 +696,17 @@ def get_request_id():
     # returns timestamp in milliseconds, as used by signal
     timestamp = str(int(datetime.datetime.now().timestamp() * 1000))
     return "weechat-signal-{}-{}".format(timestamp, random.randint(0, 1000))
+
+def set_uuid(payload):
+    # set own uuid from get_profile request
+    global own_uuid
+    if own_uuid is not None:
+        return
+    address = payload['data'].get('address', None)
+    if address is not None:
+        if address.get('number', None) == options["number"]:
+            own_uuid = address.get('uuid', None)
+            prnt("set own_uuid to {}".format(own_uuid))
 
 if __name__ == "__main__":
     try:
