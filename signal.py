@@ -33,7 +33,6 @@ useragent = "%s v%s by %s" % (SCRIPT_NAME, SCRIPT_VERSION, SCRIPT_AUTHOR)
 
 active_line = None
 highlight = weechat.color("_bold")
-hdata = weechat.hdata_get("line_data")
 
 def get_groupinfo(dictionary):
     groupInfo = None
@@ -572,7 +571,7 @@ def get_timestamp(payload):
         return ''
 
 def get_tags(line_data):
-    message = weechat.hdata_string(hdata, line_data, "message")
+    hdata = weechat.hdata_get("line_data")
     tags_count = weechat.hdata_get_var_array_size(hdata, line_data, "tags_array")
 
     tags = [
@@ -582,6 +581,7 @@ def get_tags(line_data):
     return tags
 
 def get_last_line():
+    hdata = weechat.hdata_get("line_data")
     own_lines = weechat.hdata_pointer(weechat.hdata_get("buffer"), weechat.current_buffer(), "own_lines")
     if own_lines:
         line = weechat.hdata_pointer(weechat.hdata_get("lines"), own_lines, "last_line")
@@ -604,6 +604,7 @@ def move_active_line(previous=True):
 
 def active_line_toggle_highlight(on=True):
     global active_line
+    hdata = weechat.hdata_get("line_data")
     if active_line is None:
         return
     line, line_data = active_line
@@ -643,6 +644,7 @@ def down_cmd_cb(data, buffer, args):
     return weechat.WEECHAT_RC_OK
 
 def reply_cmd_cb(data, buffer, args):
+    hdata = weechat.hdata_get("line_data")
 
     if active_line is None:
         prnt("no line for reply selected")
