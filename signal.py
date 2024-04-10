@@ -708,6 +708,17 @@ def set_uuid(payload):
             own_uuid = address.get('uuid', None)
             prnt("set own_uuid to {}".format(own_uuid))
 
+def send_cb(payload, line_data):
+    global own_uuid
+    hdata = weechat.hdata_get("line_data")
+    timestamp = payload['data'].get('timestamp', None)
+    if timestamp is None or own_uuid is None:
+        return
+    tags = get_tags(line_data)
+    tags.append("author_{}".format(own_uuid))
+    tags.append("timestamp_{}".format(timestamp))
+    weechat.hdata_update(hdata, line_data, {"tags_array": ",".join(tags)})
+
 if __name__ == "__main__":
     try:
         if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION, SCRIPT_LICENSE, SCRIPT_DESC, 'shutdown', ''):
