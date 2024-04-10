@@ -6,6 +6,7 @@ import json
 import os
 import random
 import textwrap
+import datetime
 
 """
 For completion to work, you need to set option
@@ -206,7 +207,7 @@ def receive(data, fd):
 
 def send(msgtype, cb=None, cb_args=[], cb_kwargs={}, **kwargs):
     global signald_socket
-    request_id = "weechat-signal-{}".format(random.randint(0, 1000))
+    request_id = kwargs.get("request_id", get_request_id())
     payload = kwargs
     payload['type'] = msgtype
     payload["id"] = request_id
@@ -685,6 +686,11 @@ def reply_cmd_cb(data, buffer, args):
     ), False)
     show_msg(uuid, None, encoded, False)
     return weechat.WEECHAT_RC_OK
+
+def get_request_id():
+    # returns timestamp in milliseconds, as used by signal
+    timestamp = str(int(datetime.datetime.now().timestamp() * 1000))
+    return "weechat-signal-{}-{}".format(timestamp, random.randint(0, 1000))
 
 if __name__ == "__main__":
     try:
