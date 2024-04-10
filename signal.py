@@ -194,7 +194,7 @@ def receive(data, fd):
 
     try:
         if "id" in payload and payload["id"] in callbacks:
-            callback = callbacks[payload["id"]]
+            callback = callbacks.pop(payload["id"])
             callback["func"](payload, *callback["args"], **callback["kwargs"])
         elif payload.get('type') in signald_callbacks:
             signald_callbacks[payload.get('type')](payload.get('data'))
