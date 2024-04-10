@@ -405,19 +405,28 @@ def encode_message(message):
     return message
 
 
-def buffer_input(uuid, buffer, message):
+def send_message(uuid, message, **kwargs):
     encoded = encode_message(message)
-    send("send", username=options["number"], recipientAddress={"uuid": uuid}, messageBody=encoded)
+    request_id = get_request_id()
     show_msg(uuid, None, message, False)
-    return weechat.WEECHAT_RC_OK
+    _, message_pointer = get_last_line()
+    send(
+        "send",
+        username=options["number"],
+        messageBody=encoded,
+        request_id=request_id,
+        cb=send_cb,
+        cb_args=[message_pointer,],
+        **kwargs
+    )
 
+def buffer_input(uuid, buffer, message):
+    send_message(uuid, message, recipientAddress={"uuid": uuid})
+    return weechat.WEECHAT_RC_OK
 
 def buffer_input_group(groupId, buffer, message):
-    encoded = encode_message(message)
-    send("send", username=options["number"], recipientGroupId=groupId, messageBody=encoded)
-    show_msg(None, groupId, message, False)
+    send_message(uuid, message, recipientGroupId=groupId)
     return weechat.WEECHAT_RC_OK
-
 
 def close_socket():
     global signald_socket
