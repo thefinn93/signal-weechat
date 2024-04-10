@@ -679,7 +679,13 @@ def reply_cmd_cb(data, buffer, args):
         prnt('Could not send reply: buffer {} is no signal'.format(buffer))
         return weechat.WEECHAT_RC_ERROR
 
-    encoded = encode_message(args)
+    old_message = weechat.hdata_string(hdata, line_data, "message")
+    if len(old_message) > 20:
+        old_message = old_message[:20] + "..."
+    show_msg(uuid, None, "{}> reply to: {}{}".format(
+        weechat.color("green"), old_message, weechat.color("chat")
+    ), False)
+
     quote = {
         "id": timestamp,
         "author": {
@@ -687,17 +693,19 @@ def reply_cmd_cb(data, buffer, args):
         }
     }
     if uuid in groups:
-        send("send", username=options["number"], recipientGroupId=uuid, messageBody=encoded, quote=quote)
+        send_message(
+            uuid,
+            args,
+            recipientGroupId=uuid,
+            quote=quote
+        )
     else:
-        send("send", username=options["number"], recipientAddress={"uuid": uuid}, messageBody=encoded, quote=quote)
-
-    old_message = weechat.hdata_string(hdata, line_data, "message")
-    if len(old_message) > 20:
-        old_message = old_message[:20] + "..."
-    show_msg(uuid, None, "{}> reply to: {}{}".format(
-        weechat.color("green"), old_message, weechat.color("chat")
-    ), False)
-    show_msg(uuid, None, encoded, False)
+        send_message(
+            uuid,
+            args,
+            recipientAddress={"uuid": uuid},
+            quote=quote
+        )
     return weechat.WEECHAT_RC_OK
 
 def get_request_id():
