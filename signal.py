@@ -424,7 +424,7 @@ def buffer_input(uuid, buffer, message):
     return weechat.WEECHAT_RC_OK
 
 def buffer_input_group(groupId, buffer, message):
-    send_message(uuid, message, recipientGroupId=groupId)
+    send_message(groupId, message, recipientGroupId=groupId)
     return weechat.WEECHAT_RC_OK
 
 def close_socket():
