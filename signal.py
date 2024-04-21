@@ -486,7 +486,6 @@ def smsg_cmd_cb(data, buffer, args):
     else:
         for uuid in contacts:
             if uuid == args or contact_name(uuid).lower() == args.lower():
-                print("found your number")
                 identifier = uuid
                 group = None
         if not identifier:
